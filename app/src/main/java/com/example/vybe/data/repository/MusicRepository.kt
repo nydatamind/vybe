@@ -537,9 +537,12 @@ class MusicRepository(
                     val artistJob = async {
                         if (seedArtist.isNotBlank()) {
                             try {
-                                val searchHits = audioProvider.search("$seedArtist $ecosystemKeyword").tracks
+                                val searchHits = audioProvider.search(seedArtist).tracks
+                                val moodSearchHits = if (seedMood.searchKeywords.isNotEmpty()) {
+                                    audioProvider.search("$seedArtist ${seedMood.searchKeywords.first()}").tracks
+                                } else emptyList()
                                 val discogHits = audioProvider.getTracksForArtist(seedTrack.artistId, seedArtist)
-                                (searchHits + discogHits)
+                                (searchHits + moodSearchHits + discogHits)
                                     .filter {
                                         it.id != seedTrack.id &&
                                         !it.title.equals(seedTrack.title, ignoreCase = true) &&
@@ -557,7 +560,7 @@ class MusicRepository(
                     val peerJobs = peerArtists.filter { !it.equals(seedArtist, ignoreCase = true) }.take(4).map { peer ->
                         async {
                             try {
-                                audioProvider.search("$peer $ecosystemKeyword")
+                                audioProvider.search(peer)
                                     .tracks
                                     .filter {
                                         it.id != seedTrack.id &&
@@ -572,10 +575,11 @@ class MusicRepository(
                         }
                     }
 
-                    // Task D: Top hits in the same ecosystem
+                    // Task D: Top hits in the same mood & ecosystem
                     val moodHitsJob = async {
                         try {
-                            audioProvider.search(ecosystemKeyword)
+                            val moodQuery = seedMood.searchKeywords.firstOrNull() ?: ecosystemKeyword
+                            audioProvider.search(moodQuery)
                                 .tracks
                                 .filter {
                                     it.id != seedTrack.id &&

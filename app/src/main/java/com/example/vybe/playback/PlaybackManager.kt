@@ -646,6 +646,19 @@ class PlaybackManager(
      * Executes asynchronously on Dispatchers.IO with zero playback interruption.
      */
     fun recalculateUpcomingQueue(anchorTrack: Track) {
+        // Instant Zero-Lag Queue Priming: If queue has only 1 track remaining, immediately prime with compatible fallback tracks
+        val stateNow = _playbackState.value
+        val currentIdxNow = stateNow.queueIndex
+        if (stateNow.queue.size - currentIdxNow <= 1) {
+            val instantQueue = musicRepository.recommendationEngine.getInstantFallbackQueue(anchorTrack, limit = 6)
+            if (instantQueue.isNotEmpty()) {
+                val base = if (currentIdxNow in stateNow.queue.indices) stateNow.queue.take(currentIdxNow + 1) else listOf(anchorTrack)
+                val primed = base + instantQueue
+                originalQueue = primed
+                _playbackState.update { it.copy(queue = primed) }
+            }
+        }
+
         recalculateQueueJob?.cancel()
         recalculateQueueJob = scope.launch(Dispatchers.IO) {
             try {
@@ -1004,35 +1017,53 @@ class PlaybackManager(
             triggerBackgroundCachePrune(activeTrack = firstTrack, skippedTrack = skipped)
             recalculateUpcomingQueue(firstTrack)
         } else {
-            // Reached end of queue: immediately fetch recommendations using currentTrack as anchor
+            // Reached end of queue: immediately transition using local instant fallback so music never stops!
             val current = state.currentTrack ?: queue.lastOrNull()
             if (current != null) {
-                scope.launch(Dispatchers.IO) {
-                    val freshBatch = musicRepository.getAutoplayQueue(
-                        seedTrack = current,
-                        existingQueue = queue,
-                        skippedTrackIds = skippedTrackIds.toSet(),
-                        skippedTitles = skippedTrackTitles.toSet(),
-                        sessionPlayedTrackIds = sessionPlayedIds.toSet(),
-                        sessionPlayedTitles = sessionPlayedTitles.toSet(),
-                        limit = 20
-                    )
-                    if (freshBatch.isNotEmpty()) {
-                        val nextTrack = freshBatch.first()
-                        val updatedQueue = queue + freshBatch
-                        withContext(Dispatchers.Main) {
-                            _playbackState.update {
-                                it.copy(
-                                    queue = updatedQueue,
-                                    queueIndex = queue.size,
-                                    currentTrack = nextTrack
-                                )
+                val instantTracks = musicRepository.recommendationEngine.getInstantFallbackQueue(current, limit = 6)
+                if (instantTracks.isNotEmpty()) {
+                    val nextTrack = instantTracks.first()
+                    val immediateQueue = queue + instantTracks
+                    _playbackState.update {
+                        it.copy(
+                            queue = immediateQueue,
+                            queueIndex = queue.size,
+                            currentTrack = nextTrack
+                        )
+                    }
+                    playMediaItem(nextTrack)
+                    recordSessionPlayed(nextTrack)
+                    scope.launch { musicRepository.recordPlayback(nextTrack) }
+                    triggerBackgroundCachePrune(activeTrack = nextTrack, skippedTrack = skipped)
+                    recalculateUpcomingQueue(nextTrack)
+                } else {
+                    scope.launch(Dispatchers.IO) {
+                        val freshBatch = musicRepository.getAutoplayQueue(
+                            seedTrack = current,
+                            existingQueue = queue,
+                            skippedTrackIds = skippedTrackIds.toSet(),
+                            skippedTitles = skippedTrackTitles.toSet(),
+                            sessionPlayedTrackIds = sessionPlayedIds.toSet(),
+                            sessionPlayedTitles = sessionPlayedTitles.toSet(),
+                            limit = 20
+                        )
+                        if (freshBatch.isNotEmpty()) {
+                            val nextTrack = freshBatch.first()
+                            val updatedQueue = queue + freshBatch
+                            withContext(Dispatchers.Main) {
+                                _playbackState.update {
+                                    it.copy(
+                                        queue = updatedQueue,
+                                        queueIndex = queue.size,
+                                        currentTrack = nextTrack
+                                    )
+                                }
+                                playMediaItem(nextTrack)
+                                recordSessionPlayed(nextTrack)
+                                scope.launch { musicRepository.recordPlayback(nextTrack) }
+                                triggerBackgroundCachePrune(activeTrack = nextTrack, skippedTrack = skipped)
+                                recalculateUpcomingQueue(nextTrack)
                             }
-                            playMediaItem(nextTrack)
-                            recordSessionPlayed(nextTrack)
-                            scope.launch { musicRepository.recordPlayback(nextTrack) }
-                            triggerBackgroundCachePrune(activeTrack = nextTrack, skippedTrack = skipped)
-                            recalculateUpcomingQueue(nextTrack)
                         }
                     }
                 }

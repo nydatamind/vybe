@@ -60,6 +60,7 @@ class VybeMediaService : MediaSessionService() {
     private var currentArtworkUrl: String? = null
     private var currentBitmap: Bitmap? = null
     private var currentAccentColor: Int = 0xFF00E5FF.toInt()
+    private var sessionActivityPendingIntent: PendingIntent? = null
 
     // Real-time synced lyrics & dynamic notification tracker
     private var currentLyricsDoc: LrcDocument? = null
@@ -73,7 +74,7 @@ class VybeMediaService : MediaSessionService() {
         val app = application as VybeApplication
         val player = app.playbackManager.exoPlayer
 
-        val sessionActivityPendingIntent = PendingIntent.getActivity(
+        sessionActivityPendingIntent = PendingIntent.getActivity(
             this,
             0,
             Intent(this, MainActivity::class.java),
@@ -278,8 +279,15 @@ class VybeMediaService : MediaSessionService() {
             }
         }
 
+        val sessionIntent = sessionActivityPendingIntent ?: PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
         mediaSession = MediaSession.Builder(this, forwardingPlayer)
-            .setSessionActivity(sessionActivityPendingIntent)
+            .setSessionActivity(sessionIntent)
             .setCallback(sessionCallback)
             .build()
         mediaSession?.let { addSession(it) }
@@ -343,12 +351,21 @@ class VybeMediaService : MediaSessionService() {
                     .setShowCancelButton(true)
                     .setCancelButtonIntent(closePendingIntent)
 
+                val contentIntent = sessionActivityPendingIntent ?: PendingIntent.getActivity(
+                    this@VybeMediaService,
+                    0,
+                    Intent(this@VybeMediaService, MainActivity::class.java),
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+
                 val customNotification = NotificationCompat.Builder(this@VybeMediaService, mediaNotification.notification)
                     .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                     .setStyle(mediaStyle)
                     .setColor(currentAccentColor)
                     .setColorized(true)
                     .setSmallIcon(R.drawable.app_logo)
+                    .setContentIntent(contentIntent)
+                    .setDeleteIntent(closePendingIntent)
                     .setPriority(NotificationCompat.PRIORITY_MAX)
                     .setOngoing(isPlaying)
                     .apply {
@@ -455,23 +472,38 @@ class VybeMediaService : MediaSessionService() {
         when (intent?.action) {
             ACTION_PLAY_PAUSE -> {
                 app?.playbackManager?.togglePlayPause()
+                updateNotificationNow()
                 if (app?.playbackManager?.playbackState?.value?.isPlaying == true) {
                     startLyricsTicker()
                 } else {
                     stopLyricsTicker()
                 }
             }
-            ACTION_NEXT -> app?.playbackManager?.skipToNext()
-            ACTION_PREV -> app?.playbackManager?.skipToPrevious()
-            ACTION_TOGGLE_LIKE -> app?.playbackManager?.toggleFavoriteCurrentTrack()
-            ACTION_DOWNLOAD -> app?.playbackManager?.downloadCurrentTrack()
+            ACTION_NEXT -> {
+                app?.playbackManager?.skipToNext()
+                updateNotificationNow()
+            }
+            ACTION_PREV -> {
+                app?.playbackManager?.skipToPrevious()
+                updateNotificationNow()
+            }
+            ACTION_TOGGLE_LIKE -> {
+                app?.playbackManager?.toggleFavoriteCurrentTrack()
+                updateNotificationNow()
+            }
+            ACTION_DOWNLOAD -> {
+                app?.playbackManager?.downloadCurrentTrack()
+                updateNotificationNow()
+            }
             ACTION_TOGGLE_SHUFFLE -> {
                 app?.playbackManager?.toggleShuffle()
                 updateCustomLayout()
+                updateNotificationNow()
             }
             ACTION_TOGGLE_REPEAT -> {
                 app?.playbackManager?.toggleRepeatMode()
                 updateCustomLayout()
+                updateNotificationNow()
             }
             ACTION_CLOSE_SERVICE -> stopPlaybackAndService()
             ACTION_SEEK_BACK_10 -> app?.playbackManager?.seekRelative(-10000L)
@@ -526,13 +558,6 @@ class VybeMediaService : MediaSessionService() {
             .setEnabled(track != null)
             .build()
 
-        val downloadBtn = CommandButton.Builder()
-            .setDisplayName(if (track?.isDownloaded == true) "Downloaded" else "Download")
-            .setIconResId(if (track?.isDownloaded == true) R.drawable.ic_notif_download_done else R.drawable.ic_notif_download)
-            .setSessionCommand(SessionCommand(ACTION_DOWNLOAD, Bundle.EMPTY))
-            .setEnabled(track != null && !track.isDownloaded)
-            .build()
-
         val shuffleBtn = CommandButton.Builder()
             .setDisplayName(if (state.shuffleEnabled) "Shuffle On" else "Shuffle Off")
             .setIconResId(R.drawable.ic_notif_shuffle)
@@ -553,13 +578,20 @@ class VybeMediaService : MediaSessionService() {
             .setSessionCommand(SessionCommand(ACTION_TOGGLE_REPEAT, Bundle.EMPTY))
             .build()
 
+        val downloadBtn = CommandButton.Builder()
+            .setDisplayName(if (track?.isDownloaded == true) "Downloaded" else "Download")
+            .setIconResId(if (track?.isDownloaded == true) R.drawable.ic_notif_download_done else R.drawable.ic_notif_download)
+            .setSessionCommand(SessionCommand(ACTION_DOWNLOAD, Bundle.EMPTY))
+            .setEnabled(track != null && !track.isDownloaded)
+            .build()
+
         val closeBtn = CommandButton.Builder()
             .setDisplayName("Stop")
             .setIconResId(R.drawable.ic_notif_close)
             .setSessionCommand(SessionCommand(ACTION_CLOSE_SERVICE, Bundle.EMPTY))
             .build()
 
-        session.setCustomLayout(ImmutableList.of(likeBtn, downloadBtn, shuffleBtn, repeatBtn, closeBtn))
+        session.setCustomLayout(ImmutableList.of(likeBtn, shuffleBtn, repeatBtn, downloadBtn, closeBtn))
     }
 
     private fun fetchLyricsForNotification(track: Track) {
@@ -676,7 +708,11 @@ class VybeMediaService : MediaSessionService() {
                     }
                 }
             }
-            bestColor
+            val resultHsv = FloatArray(3)
+            Color.colorToHSV(bestColor, resultHsv)
+            if (resultHsv[1] < 0.40f) resultHsv[1] = 0.65f
+            resultHsv[2] = resultHsv[2].coerceIn(0.40f, 0.85f)
+            Color.HSVToColor(resultHsv)
         } catch (e: Exception) {
             0xFF00E5FF.toInt()
         }
@@ -695,9 +731,12 @@ class VybeMediaService : MediaSessionService() {
                 val result = loader.execute(request)
                 val drawable = result.drawable
                 if (drawable is BitmapDrawable) {
-                    val bmp = drawable.bitmap
-                    currentBitmap = bmp
-                    currentAccentColor = extractSubtleDynamicColor(bmp)
+                    val rawBmp = drawable.bitmap
+                    val scaledBmp = if (rawBmp.width > 300 || rawBmp.height > 300) {
+                        Bitmap.createScaledBitmap(rawBmp, 300, 300, true)
+                    } else rawBmp
+                    currentBitmap = scaledBmp
+                    currentAccentColor = extractSubtleDynamicColor(scaledBmp)
                     withContext(Dispatchers.Main) {
                         updateNotificationNow()
                     }
@@ -753,11 +792,20 @@ class VybeMediaService : MediaSessionService() {
                 .setShowCancelButton(true)
                 .setCancelButtonIntent(closePendingIntent)
 
+            val contentIntent = sessionActivityPendingIntent ?: PendingIntent.getActivity(
+                this,
+                0,
+                Intent(this, MainActivity::class.java),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+
             val updated = NotificationCompat.Builder(this, lastNotif.notification)
                 .setColor(currentAccentColor)
                 .setColorized(true)
                 .setSmallIcon(R.drawable.app_logo)
                 .setStyle(mediaStyle)
+                .setContentIntent(contentIntent)
+                .setDeleteIntent(closePendingIntent)
                 .setOngoing(isPlaying)
                 .apply {
                     currentBitmap?.let { setLargeIcon(it) }
@@ -866,6 +914,8 @@ class VybeMediaService : MediaSessionService() {
             ).apply {
                 description = "Shows currently playing VYBE song controls on Lock Screen and Notification Shade"
                 setShowBadge(false)
+                setSound(null, null)
+                enableVibration(false)
                 lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
             }
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
