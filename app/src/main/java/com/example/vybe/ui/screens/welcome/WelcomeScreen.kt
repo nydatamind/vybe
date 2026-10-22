@@ -71,6 +71,7 @@ import coil.compose.AsyncImage
 import com.example.vybe.core.designsystem.DarkBackground
 import com.example.vybe.core.designsystem.DarkCard
 import com.example.vybe.core.designsystem.TextMutedDark
+import com.example.vybe.core.designsystem.TextSecondaryDark
 import com.example.vybe.core.designsystem.VybeEmerald
 import com.example.vybe.core.designsystem.VybeEmeraldBright
 import com.example.vybe.core.designsystem.vybeNeonGlow
@@ -313,29 +314,78 @@ private fun OnboardingHeader(
     onBackClick: () -> Unit,
     onSkipClick: () -> Unit
 ) {
-    if (currentStep == OnboardingStep.ARTISTS) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            IconButton(onClick = onBackClick, modifier = Modifier.size(36.dp)) {
-                Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
-            }
-            androidx.compose.material3.TextButton(
-                onClick = onSkipClick,
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        if (currentStep == OnboardingStep.ARTISTS) {
+            IconButton(
+                onClick = onBackClick,
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(Color(0x22FFFFFF))
             ) {
-                Text(
-                    text = "Skip",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White.copy(alpha = 0.85f),
-                    fontSize = 16.sp
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
                 )
             }
+        } else {
+            // Step 1: Subtle Step Indicator Pill
+            Surface(
+                color = Color(0x22FFFFFF),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    text = "STEP 1 OF 2",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = VybeEmeraldBright,
+                    letterSpacing = 1.sp,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                )
+            }
+        }
+
+        // Stepper Progress Indicators
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(28.dp)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(VybeEmeraldBright)
+            )
+            Box(
+                modifier = Modifier
+                    .width(28.dp)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(if (currentStep == OnboardingStep.ARTISTS) VybeEmeraldBright else Color(0x33FFFFFF))
+            )
+        }
+
+        // Skip Button
+        androidx.compose.material3.TextButton(
+            onClick = onSkipClick,
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+        ) {
+            Text(
+                text = "Skip",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White.copy(alpha = 0.85f),
+                fontSize = 15.sp
+            )
         }
     }
 }
@@ -349,9 +399,9 @@ private fun LanguageSelectionStep(
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 8.dp, bottom = 24.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 8.dp, bottom = 28.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item(span = { GridItemSpan(2) }) {
             Column(modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)) {
@@ -362,6 +412,13 @@ private fun LanguageSelectionStep(
                     color = Color.White,
                     fontSize = 28.sp,
                     letterSpacing = (-0.5).sp
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Choose your preferred languages to tune your recommendations",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondaryDark,
+                    fontSize = 14.sp
                 )
             }
         }
@@ -410,7 +467,7 @@ private fun LanguageCard(
 
     // Ultra-smooth spring bouncy press animation
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.95f else if (isSelected) 1.02f else 1.0f,
+        targetValue = if (isPressed) 0.94f else if (isSelected) 1.02f else 1.0f,
         animationSpec = spring(
             dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
             stiffness = androidx.compose.animation.core.Spring.StiffnessMedium
@@ -423,17 +480,23 @@ private fun LanguageCard(
 
     Surface(
         color = cardColor,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(18.dp),
         modifier = modifier
             .fillMaxWidth()
-            .height(104.dp)
+            .height(108.dp)
             .scale(scale)
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(18.dp))
             .then(
                 if (isSelected) {
-                    Modifier.border(3.dp, Color.White, RoundedCornerShape(16.dp))
+                    Modifier.border(
+                        3.dp,
+                        androidx.compose.ui.graphics.Brush.horizontalGradient(
+                            listOf(Color.White, VybeEmeraldBright)
+                        ),
+                        RoundedCornerShape(18.dp)
+                    )
                 } else {
-                    Modifier
+                    Modifier.border(0.5.dp, Color(0x33FFFFFF), RoundedCornerShape(18.dp))
                 }
             )
             .clickable(
@@ -447,9 +510,9 @@ private fun LanguageCard(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .clip(RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(18.dp))
         ) {
-            // Cutout artist photo card matching reference screenshot
+            // Cutout artist photo card
             androidx.compose.foundation.Image(
                 painter = androidx.compose.ui.res.painterResource(id = drawableRes),
                 contentDescription = language.name,
@@ -457,7 +520,18 @@ private fun LanguageCard(
                 modifier = Modifier.fillMaxSize()
             )
 
-            // Language Name text overlay on the top-left
+            // Subtle dark vignette gradient for perfect text contrast
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        androidx.compose.ui.graphics.Brush.verticalGradient(
+                            colors = listOf(Color(0x55000000), Color(0x22000000), Color(0x88000000))
+                        )
+                    )
+            )
+
+            // Language Name text overlay on top-left
             Text(
                 text = language.name,
                 style = MaterialTheme.typography.titleMedium,
@@ -469,13 +543,14 @@ private fun LanguageCard(
                     .padding(start = 14.dp, top = 12.dp)
             )
 
-            // Selected Checkmark Badge (Top-Right indicator)
+            // Selected Checkmark Badge (Top-Right indicator with glow)
             if (isSelected) {
                 Surface(
                     shape = CircleShape,
                     color = Color.White,
+                    shadowElevation = 6.dp,
                     modifier = Modifier
-                        .size(24.dp)
+                        .size(26.dp)
                         .align(Alignment.TopEnd)
                         .padding(top = 8.dp, end = 8.dp)
                 ) {
@@ -492,7 +567,6 @@ private fun LanguageCard(
         }
     }
 }
-
 
 @Composable
 private fun ArtistSelectionStep(
@@ -531,64 +605,76 @@ private fun ArtistSelectionStep(
     LazyVerticalGrid(
         columns = GridCells.Fixed(3),
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 28.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 28.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        // 1. Header Title (Spotify Style)
+        // 1. Header Title & Subtitle
         item(span = { GridItemSpan(3) }) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 4.dp, bottom = 14.dp)
+                    .padding(top = 2.dp, bottom = 12.dp)
             ) {
                 Text(
                     text = "Choose 3 or more artists you like.",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
-                    fontSize = 20.sp,
+                    fontSize = 21.sp,
                     textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Tap artists to personalize your mixes & discover daily favorites",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondaryDark,
+                    textAlign = TextAlign.Center,
+                    fontSize = 13.sp
                 )
             }
         }
 
-        // 2. Search Bar (White rounded Spotify search box)
+        // 2. Search Bar (Modern Dark Glass container)
         item(span = { GridItemSpan(3) }) {
             Surface(
-                color = Color.White,
-                shape = RoundedCornerShape(8.dp),
+                color = Color(0xFF1E2232),
+                shape = RoundedCornerShape(14.dp),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    if (searchQuery.isNotEmpty()) VybeEmerald else Color(0x33FFFFFF)
+                ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(46.dp)
+                    .height(48.dp)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 12.dp)
+                    modifier = Modifier.padding(horizontal = 14.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Search,
                         contentDescription = "Search",
-                        tint = Color(0xFF1E1E1E),
-                        modifier = Modifier.size(22.dp)
+                        tint = if (searchQuery.isNotEmpty()) VybeEmeraldBright else TextSecondaryDark,
+                        modifier = Modifier.size(20.dp)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
                     androidx.compose.foundation.text.BasicTextField(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
                         singleLine = true,
                         textStyle = androidx.compose.ui.text.TextStyle(
-                            color = Color(0xFF1E1E1E),
-                            fontSize = 16.sp,
+                            color = Color.White,
+                            fontSize = 15.sp,
                             fontWeight = FontWeight.Medium
                         ),
                         decorationBox = { innerTextField ->
                             if (searchQuery.isEmpty()) {
                                 Text(
-                                    text = "Search",
-                                    color = Color(0xFF757575),
-                                    fontSize = 16.sp,
+                                    text = "Search artists, singers or tracks...",
+                                    color = TextMutedDark,
+                                    fontSize = 14.sp,
                                     fontWeight = FontWeight.Normal
                                 )
                             }
@@ -604,7 +690,7 @@ private fun ArtistSelectionStep(
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Clear",
-                                tint = Color(0xFF757575),
+                                tint = TextSecondaryDark,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -623,7 +709,7 @@ private fun ArtistSelectionStep(
                 item {
                     val isForYouSelected = activeFilterId == "for_you"
                     Surface(
-                        color = if (isForYouSelected) VybeEmerald else Color(0xFF1E222D),
+                        color = if (isForYouSelected) VybeEmerald else Color(0xFF1B1E2B),
                         shape = RoundedCornerShape(20.dp),
                         modifier = Modifier
                             .clip(RoundedCornerShape(20.dp))
@@ -649,7 +735,7 @@ private fun ArtistSelectionStep(
                     item(key = lang.id) {
                         val isChipSelected = activeFilterId == lang.id
                         Surface(
-                            color = if (isChipSelected) VybeEmerald else Color(0xFF1E222D),
+                            color = if (isChipSelected) VybeEmerald else Color(0xFF1B1E2B),
                             shape = RoundedCornerShape(20.dp),
                             modifier = Modifier
                                 .clip(RoundedCornerShape(20.dp))
@@ -746,8 +832,8 @@ private fun ArtistOnboardingItem(
                     )
                 )
                 .border(
-                    width = if (isSelected) 3.5.dp else 0.dp,
-                    color = if (isSelected) Color.White else Color.Transparent,
+                    width = if (isSelected) 3.5.dp else 1.dp,
+                    color = if (isSelected) Color.White else Color(0x22FFFFFF),
                     shape = CircleShape
                 ),
             contentAlignment = Alignment.Center
@@ -786,6 +872,7 @@ private fun ArtistOnboardingItem(
                     Surface(
                         shape = CircleShape,
                         color = Color.White,
+                        shadowElevation = 8.dp,
                         modifier = Modifier.size(32.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -813,6 +900,16 @@ private fun ArtistOnboardingItem(
             fontSize = 13.5.sp,
             overflow = TextOverflow.Ellipsis
         )
+
+        Text(
+            text = artist.languageName,
+            style = MaterialTheme.typography.labelSmall,
+            color = TextSecondaryDark,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            fontSize = 11.sp,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
@@ -834,48 +931,56 @@ private fun OnboardingBottomBar(
 
         if (currentStep == OnboardingStep.LANGUAGES) {
             isEnabled = selectedLanguagesCount > 0
-            buttonText = if (isEnabled) "Next: Choose Artists ($selectedLanguagesCount selected)" else "Select at least 1 category"
+            buttonText = if (isEnabled) "Next: Choose Artists ($selectedLanguagesCount selected)" else "Select at least 1 language"
         } else {
             isEnabled = true
             buttonText = if (selectedArtistsCount > 0) {
-                "Continue ($selectedArtistsCount selected)"
+                "Finish & Start Listening ($selectedArtistsCount selected)"
             } else {
-                "Continue"
+                "Start Listening"
             }
         }
 
-        Button(
-            onClick = onNext,
-            enabled = isEnabled,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = VybeEmerald,
-                disabledContainerColor = DarkCard,
-                contentColor = Color.Black,
-                disabledContentColor = TextMutedDark
-            ),
+        Surface(
             shape = RoundedCornerShape(28.dp),
+            color = Color.Transparent,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp)
+                .height(54.dp)
+                .clip(RoundedCornerShape(28.dp))
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        if (isEnabled) com.example.vybe.core.designsystem.VybeGradientEmerald
+                        else androidx.compose.ui.graphics.Brush.linearGradient(listOf(DarkCard, DarkCard))
+                    )
+                    .clickable(enabled = isEnabled) { onNext() },
+                contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = buttonText,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Icon(
-                    imageVector = if (currentStep == OnboardingStep.LANGUAGES) Icons.Default.ArrowForward else Icons.Default.Check,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = buttonText,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isEnabled) Color.Black else TextMutedDark,
+                        fontSize = 16.sp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Icon(
+                        imageVector = if (currentStep == OnboardingStep.LANGUAGES) Icons.Default.ArrowForward else Icons.Default.Check,
+                        contentDescription = null,
+                        tint = if (isEnabled) Color.Black else TextMutedDark,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
         }
     }
 }
+
 

@@ -49,6 +49,10 @@ import com.example.vybe.core.designsystem.VybeEmeraldBright
 import com.example.vybe.core.model.PlaybackState
 import com.example.vybe.core.model.Track
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.Brush
+
 @Composable
 fun MiniPlayer(
     playbackState: PlaybackState,
@@ -69,11 +73,21 @@ fun MiniPlayer(
         if (track != null) {
             Surface(
                 color = DarkSurfaceElevated,
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(16.dp),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 6.dp)
-                    .border(0.5.dp, Color(0x33FFFFFF), RoundedCornerShape(14.dp))
+                    .border(
+                        width = 0.8.dp,
+                        brush = Brush.horizontalGradient(
+                            listOf(
+                                VybeEmerald.copy(alpha = 0.45f),
+                                Color(0x22FFFFFF),
+                                VybeEmerald.copy(alpha = 0.45f)
+                            )
+                        ),
+                        shape = RoundedCornerShape(16.dp)
+                    )
                     .clickable { onExpandClick() }
             ) {
                 Column {
@@ -82,9 +96,9 @@ fun MiniPlayer(
                         progress = { playbackState.progressFraction },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(2.dp),
-                        color = VybeEmerald,
-                        trackColor = Color(0x33FFFFFF)
+                            .height(2.5.dp),
+                        color = VybeEmeraldBright,
+                        trackColor = Color(0x22FFFFFF)
                     )
 
                     Row(
@@ -97,7 +111,8 @@ fun MiniPlayer(
                         Box(
                             modifier = Modifier
                                 .size(44.dp)
-                                .clip(RoundedCornerShape(8.dp))
+                                .clip(RoundedCornerShape(10.dp))
+                                .border(0.5.dp, Color(0x33FFFFFF), RoundedCornerShape(10.dp))
                         ) {
                             AsyncImage(
                                 model = track.artworkUrl,
@@ -143,18 +158,26 @@ fun MiniPlayer(
                             )
                         }
 
-                        // Play/Pause button
-                        IconButton(
-                            onClick = onPlayPauseClick,
-                            modifier = Modifier.size(40.dp)
+                        // Elevated Play/Pause button
+                        Surface(
+                            shape = CircleShape,
+                            color = VybeEmerald.copy(alpha = 0.18f),
+                            border = BorderStroke(1.dp, VybeEmerald.copy(alpha = 0.5f)),
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clickable { onPlayPauseClick() }
                         ) {
-                            Icon(
-                                imageVector = if (playbackState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                contentDescription = if (playbackState.isPlaying) "Pause" else "Play",
-                                tint = Color.White,
-                                modifier = Modifier.size(28.dp)
-                            )
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = if (playbackState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                    contentDescription = if (playbackState.isPlaying) "Pause" else "Play",
+                                    tint = VybeEmeraldBright,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
                         }
+
+                        Spacer(modifier = Modifier.width(4.dp))
 
                         // Next button
                         IconButton(

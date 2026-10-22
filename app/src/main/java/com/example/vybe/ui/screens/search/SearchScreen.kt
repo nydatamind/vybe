@@ -6,6 +6,7 @@ import android.speech.RecognizerIntent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -483,17 +484,25 @@ fun SearchScreen(
                                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
                                 )
                                 Surface(
-                                    color = DarkCard,
-                                    shape = RoundedCornerShape(16.dp),
+                                    color = Color(0xFF141824),
+                                    shape = RoundedCornerShape(18.dp),
+                                    border = BorderStroke(
+                                        width = 1.dp,
+                                        brush = Brush.horizontalGradient(
+                                            listOf(
+                                                VybeEmerald.copy(alpha = 0.5f),
+                                                Color(0x22FFFFFF)
+                                            )
+                                        )
+                                    ),
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 4.dp)
-                                        .clip(RoundedCornerShape(16.dp))
+                                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                                        .clip(RoundedCornerShape(18.dp))
                                         .clickable { onArtistClick(topArtist.id) }
-                                        .border(0.5.dp, Color(0x33FFFFFF), RoundedCornerShape(16.dp))
                                 ) {
                                     Row(
-                                        modifier = Modifier.padding(14.dp),
+                                        modifier = Modifier.padding(16.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Box(modifier = Modifier.size(68.dp)) {

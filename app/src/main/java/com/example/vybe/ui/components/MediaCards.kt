@@ -8,6 +8,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -113,8 +114,9 @@ fun TrackItem(
     val displayArtist = remember(track.artistName) { formatArtistName(track.artistName) }
 
     Surface(
-        color = if (isCurrent) VybeEmerald.copy(alpha = 0.15f) else Color.Transparent,
+        color = if (isCurrent) VybeEmerald.copy(alpha = 0.12f) else Color.Transparent,
         shape = RoundedCornerShape(12.dp),
+        border = if (isCurrent) BorderStroke(1.dp, VybeEmerald.copy(alpha = 0.35f)) else null,
         modifier = modifier
             .fillMaxWidth()
             .clickable { onTrackClick() }
@@ -129,7 +131,8 @@ fun TrackItem(
             Box(
                 modifier = Modifier
                     .size(52.dp)
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(10.dp))
+                    .border(0.5.dp, Color(0x28FFFFFF), RoundedCornerShape(10.dp))
                     .background(DarkCard),
                 contentAlignment = Alignment.Center
             ) {
@@ -441,15 +444,25 @@ fun CategoryCard(
 ) {
     Box(
         modifier = modifier
-            .height(90.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .height(94.dp)
+            .clip(RoundedCornerShape(16.dp))
             .background(gradient)
+            .border(0.8.dp, Color(0x25FFFFFF), RoundedCornerShape(16.dp))
             .clickable { onClick() }
             .padding(14.dp)
     ) {
+        Icon(
+            imageVector = Icons.Default.QueueMusic,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.16f),
+            modifier = Modifier
+                .size(68.dp)
+                .align(Alignment.BottomEnd)
+                .padding(end = 4.dp, bottom = 4.dp)
+        )
         Text(
             text = title,
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.titleMedium,
             color = Color.White,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.align(Alignment.TopStart)

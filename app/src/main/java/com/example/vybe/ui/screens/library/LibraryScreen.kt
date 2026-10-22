@@ -131,16 +131,17 @@ fun LibraryScreen(
                     item {
                         Surface(
                             color = Color.Transparent,
-                            shape = RoundedCornerShape(14.dp),
+                            shape = RoundedCornerShape(16.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(80.dp)
-                                .clip(RoundedCornerShape(14.dp))
+                                .height(84.dp)
+                                .clip(RoundedCornerShape(16.dp))
                                 .background(
                                     Brush.horizontalGradient(
-                                        listOf(Color(0xFF450AF5), Color(0xFF8E24AA), Color(0xFFC2185B))
+                                        listOf(Color(0xFF3F1AE5), Color(0xFF7B1FA2), Color(0xFFC2185B))
                                     )
                                 )
+                                .border(1.dp, Color(0x35FFFFFF), RoundedCornerShape(16.dp))
                                 .clickable { onLikedSongsClick() }
                                 .padding(16.dp)
                         ) {
@@ -174,14 +175,14 @@ fun LibraryScreen(
                                 Surface(
                                     shape = CircleShape,
                                     color = Color(0x44FFFFFF),
-                                    modifier = Modifier.size(36.dp)
+                                    modifier = Modifier.size(38.dp)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Icon(
                                             imageVector = Icons.Default.PlayArrow,
                                             contentDescription = "Play",
                                             tint = Color.White,
-                                            modifier = Modifier.size(20.dp)
+                                            modifier = Modifier.size(22.dp)
                                         )
                                     }
                                 }
@@ -196,18 +197,19 @@ fun LibraryScreen(
                     item {
                         Surface(
                             color = DarkCard,
-                            shape = RoundedCornerShape(14.dp),
+                            shape = RoundedCornerShape(16.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .clip(RoundedCornerShape(16.dp))
+                                .border(0.8.dp, Color(0x22FFFFFF), RoundedCornerShape(16.dp))
                                 .clickable { onDownloadsClick() }
-                                .padding(vertical = 4.dp)
                         ) {
                             Row(
                                 modifier = Modifier.padding(14.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Surface(
-                                    shape = RoundedCornerShape(8.dp),
+                                    shape = RoundedCornerShape(10.dp),
                                     color = VybeEmeraldBright.copy(alpha = 0.18f),
                                     modifier = Modifier.size(48.dp)
                                 ) {

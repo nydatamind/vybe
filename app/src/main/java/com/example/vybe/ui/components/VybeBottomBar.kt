@@ -45,6 +45,9 @@ import com.example.vybe.core.designsystem.TextMutedDark
 import com.example.vybe.core.designsystem.VybeEmerald
 import com.example.vybe.core.designsystem.vybeNeonGlow
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.draw.scale
+
 sealed class NavItem(
     val route: String,
     val title: String,
@@ -68,13 +71,13 @@ fun VybeBottomBar(
         modifier = modifier
             .fillMaxWidth()
             .border(
-                width = 0.5.dp,
+                width = 0.75.dp,
                 brush = Brush.verticalGradient(
-                    colors = listOf(Color(0x33FFFFFF), Color.Transparent)
+                    colors = listOf(Color(0x3DFFFFFF), Color(0x0AFFFFFF), Color.Transparent)
                 ),
-                shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
             )
-            .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+            .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
     ) {
         Row(
             modifier = Modifier
@@ -132,6 +135,11 @@ private fun BottomBarTabItem(
         animationSpec = tween(durationMillis = 200),
         label = "textColor"
     )
+    val iconScale by animateFloatAsState(
+        targetValue = if (isSelected) 1.12f else 1.0f,
+        animationSpec = tween(durationMillis = 200),
+        label = "iconScale"
+    )
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -144,13 +152,15 @@ private fun BottomBarTabItem(
             ) {
                 if (!isSelected) onNavigate(item.route)
             }
-            .padding(horizontal = 10.dp, vertical = 6.dp)
+            .padding(horizontal = 12.dp, vertical = 4.dp)
     ) {
         Icon(
             imageVector = if (isSelected) item.selectedIcon else item.unselectedIcon,
             contentDescription = item.title,
             tint = iconColor,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier
+                .size(24.dp)
+                .scale(iconScale)
         )
         Text(
             text = item.title,
@@ -158,6 +168,14 @@ private fun BottomBarTabItem(
             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
             color = textColor,
             modifier = Modifier.padding(top = 2.dp)
+        )
+        // Subtle active indicator pill
+        Box(
+            modifier = Modifier
+                .padding(top = 2.dp)
+                .size(width = 14.dp, height = 2.dp)
+                .clip(RoundedCornerShape(1.dp))
+                .background(if (isSelected) VybeEmerald else Color.Transparent)
         )
     }
 }

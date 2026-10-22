@@ -56,3 +56,19 @@ val VybeGradientDarkGlass = Brush.verticalGradient(
 val VybeCardGlow = Brush.radialGradient(
     colors = listOf(Color(0x4000E5FF), Color(0x0000E5FF))
 )
+
+val VybeGlassBorder = Brush.verticalGradient(
+    colors = listOf(Color(0x38FFFFFF), Color(0x0AFFFFFF))
+)
+
+val VybeGlowCyanBrush = Brush.horizontalGradient(
+    colors = listOf(VybeEmerald, VybeEmeraldBright)
+)
+
+val VybeCardBackgroundGradient = Brush.verticalGradient(
+    colors = listOf(Color(0xFF1F2333), Color(0xFF141724))
+)
+
+val VybeAccentGradient = Brush.horizontalGradient(
+    colors = listOf(Color(0xFF00E5FF), Color(0xFF00B7D8), Color(0xFF00FF88))
+)

@@ -1,5 +1,7 @@
 *.iml
 .gradle
+.kotlin/
+*.salive
 /local.properties
 /.idea/
 .DS_Store
@@ -11,3 +13,9 @@ app/build/
 .externalNativeBuild
 .cxx
 local.properties
+*.bak
+*.tmp
+artists_output.json
+bhakti_output.json
+catalog_snippet.txt
+

@@ -1,6 +1,7 @@
 package com.example.vybe.ui.screens.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,6 +22,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MusicNote
@@ -267,13 +269,29 @@ fun HomeScreen(
 
 @Composable
 private fun SectionHeader(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.displaySmall,
-        fontWeight = FontWeight.Bold,
-        color = Color.White,
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
-    )
+    ) {
+        Box(
+            modifier = Modifier
+                .width(3.5.dp)
+                .height(18.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(
+                    Brush.verticalGradient(
+                        listOf(VybeEmeraldBright, VybeEmerald)
+                    )
+                )
+        )
+        Spacer(modifier = Modifier.width(10.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.displaySmall,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
+    }
 }
 
 @Composable
@@ -284,7 +302,8 @@ private fun QuickPlayCard(
 ) {
     Surface(
         color = DarkCard,
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(0.6.dp, Color(0x22FFFFFF)),
         modifier = Modifier
             .width(180.dp)
             .height(56.dp)
@@ -300,7 +319,7 @@ private fun QuickPlayCard(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .size(56.dp)
-                    .clip(RoundedCornerShape(topStart = 10.dp, bottomStart = 10.dp))
+                    .clip(RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp))
             )
             Spacer(modifier = Modifier.width(10.dp))
             Text(
@@ -326,13 +345,14 @@ private fun TrendingTrackCard(
 ) {
     Column(
         modifier = Modifier
-            .width(140.dp)
+            .width(144.dp)
             .clickable { onClick() }
     ) {
         Box(
             modifier = Modifier
-                .size(140.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .size(144.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .border(0.6.dp, Color(0x25FFFFFF), RoundedCornerShape(16.dp))
         ) {
             AsyncImage(
                 model = track.artworkUrl,
@@ -340,32 +360,46 @@ private fun TrendingTrackCard(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
+            // Subtle dark bottom vignette
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(Color.Transparent, Color(0x77000000)),
+                            startY = 140f
+                        )
+                    )
+            )
             Surface(
                 shape = CircleShape,
                 color = if (isPlaying) VybeEmeraldBright else VybeEmerald,
+                shadowElevation = 4.dp,
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(34.dp)
                     .align(Alignment.BottomEnd)
-                    .padding(4.dp)
+                    .padding(end = 6.dp, bottom = 6.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = Icons.Default.PlayArrow,
                         contentDescription = "Play",
                         tint = Color.Black,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
         }
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = track.title,
             style = MaterialTheme.typography.titleMedium,
-            color = Color.White,
+            fontWeight = FontWeight.SemiBold,
+            color = if (isPlaying) VybeEmeraldBright else Color.White,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
+        Spacer(modifier = Modifier.height(2.dp))
         Text(
             text = track.artistName,
             style = MaterialTheme.typography.bodySmall,
