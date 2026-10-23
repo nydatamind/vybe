@@ -9,6 +9,7 @@
 build/
 app/build/
 *.apk
+!vybe.apk
 /captures
 .externalNativeBuild
 .cxx
