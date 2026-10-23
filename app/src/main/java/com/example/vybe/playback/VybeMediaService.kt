@@ -363,12 +363,13 @@ class VybeMediaService : MediaSessionService() {
                     .setStyle(mediaStyle)
                     .setColor(currentAccentColor)
                     .setColorized(true)
-                    .setSmallIcon(R.drawable.app_logo)
+                    .setSmallIcon(R.drawable.ic_notif_vybe)
                     .setContentIntent(contentIntent)
                     .setDeleteIntent(closePendingIntent)
                     .setPriority(NotificationCompat.PRIORITY_MAX)
                     .setOngoing(isPlaying)
                     .apply {
+                        clearActions() // Prevent action duplication across notification updates
                         currentBitmap?.let { setLargeIcon(it) }
                         if (currentTrack != null) {
                             setContentTitle(currentTrack.title)
@@ -446,12 +447,14 @@ class VybeMediaService : MediaSessionService() {
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
             val initialNotif = NotificationCompat.Builder(this, PLAYBACK_CHANNEL_ID)
-                .setSmallIcon(R.drawable.app_logo)
+                .setSmallIcon(R.drawable.ic_notif_vybe)
                 .setContentIntent(openAppIntent)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setStyle(MediaStyleNotificationHelper.MediaStyle(session))
                 .setOngoing(true)
                 .build()
+
+            lastMediaNotification = MediaNotification(PLAYBACK_NOTIFICATION_ID, initialNotif)
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 startForeground(
@@ -591,7 +594,7 @@ class VybeMediaService : MediaSessionService() {
             .setSessionCommand(SessionCommand(ACTION_CLOSE_SERVICE, Bundle.EMPTY))
             .build()
 
-        session.setCustomLayout(ImmutableList.of(likeBtn, shuffleBtn, repeatBtn, downloadBtn, closeBtn))
+        session.setCustomLayout(ImmutableList.of(likeBtn, downloadBtn, shuffleBtn, repeatBtn, closeBtn))
     }
 
     private fun fetchLyricsForNotification(track: Track) {
@@ -636,6 +639,13 @@ class VybeMediaService : MediaSessionService() {
         val track = state.currentTrack
         val isPlaying = state.isPlaying
 
+        val isDucked = state.isAudioDucked
+
+        // 0. Audio ducking status (e.g. user watching Reel / Short / WhatsApp audio)
+        if (isDucked) {
+            return "🔇 Playing Silently (Audio Ducked)"
+        }
+
         // 1. Check if synced lyrics line is active right now
         val currentPos = state.currentPositionMs
         val activeLine = currentLyricsDoc?.lines?.lastOrNull {
@@ -679,6 +689,10 @@ class VybeMediaService : MediaSessionService() {
             val newMediaNotif = MediaNotification(lastNotif.notificationId, updated)
             lastMediaNotification = newMediaNotif
             notificationCallback?.onNotificationChanged(newMediaNotif)
+            try {
+                val manager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                manager?.notify(lastNotif.notificationId, updated)
+            } catch (_: Exception) {}
         } catch (_: Exception) {}
     }
 
@@ -727,16 +741,38 @@ class VybeMediaService : MediaSessionService() {
                 val request = ImageRequest.Builder(this@VybeMediaService)
                     .data(artworkUrl)
                     .allowHardware(false)
+                    .size(512, 512)
                     .build()
                 val result = loader.execute(request)
                 val drawable = result.drawable
                 if (drawable is BitmapDrawable) {
                     val rawBmp = drawable.bitmap
-                    val scaledBmp = if (rawBmp.width > 300 || rawBmp.height > 300) {
-                        Bitmap.createScaledBitmap(rawBmp, 300, 300, true)
+                    val scaledBmp = if (rawBmp.width > 512 || rawBmp.height > 512) {
+                        Bitmap.createScaledBitmap(rawBmp, 512, 512, true)
                     } else rawBmp
                     currentBitmap = scaledBmp
                     currentAccentColor = extractSubtleDynamicColor(scaledBmp)
+
+                    // Provide high-res artwork byte array to MediaSession MediaMetadata
+                    // so Android 13+ Quick Settings / Lock Screen renders the full-bleed cover background!
+                    try {
+                        val byteStream = java.io.ByteArrayOutputStream()
+                        scaledBmp.compress(Bitmap.CompressFormat.JPEG, 90, byteStream)
+                        val artBytes = byteStream.toByteArray()
+                        withContext(Dispatchers.Main) {
+                            val session = mediaSession
+                            if (session != null) {
+                                val currentMeta = session.player.mediaMetadata
+                                val updatedMeta = currentMeta.buildUpon()
+                                    .setArtworkData(artBytes, androidx.media3.common.MediaMetadata.PICTURE_TYPE_FRONT_COVER)
+                                    .build()
+                                session.player.playlistMetadata = updatedMeta
+                            }
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+
                     withContext(Dispatchers.Main) {
                         updateNotificationNow()
                     }
@@ -802,7 +838,7 @@ class VybeMediaService : MediaSessionService() {
             val updated = NotificationCompat.Builder(this, lastNotif.notification)
                 .setColor(currentAccentColor)
                 .setColorized(true)
-                .setSmallIcon(R.drawable.app_logo)
+                .setSmallIcon(R.drawable.ic_notif_vybe)
                 .setStyle(mediaStyle)
                 .setContentIntent(contentIntent)
                 .setDeleteIntent(closePendingIntent)
@@ -848,6 +884,10 @@ class VybeMediaService : MediaSessionService() {
             val newMediaNotif = MediaNotification(lastNotif.notificationId, updated)
             lastMediaNotification = newMediaNotif
             notificationCallback?.onNotificationChanged(newMediaNotif)
+            try {
+                val manager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                manager?.notify(lastNotif.notificationId, updated)
+            } catch (_: Exception) {}
 
             updateCustomLayout()
 

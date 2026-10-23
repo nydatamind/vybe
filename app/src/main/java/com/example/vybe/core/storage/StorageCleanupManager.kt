@@ -28,8 +28,8 @@ class StorageCleanupManager(private val context: Context) {
     companion object {
         private const val TAG = "StorageCleanupManager"
 
-        // Maximum allowable combined cache on disk (Audio 8MB + Images 2MB = ~10MB)
-        const val MAX_COMBINED_CACHE_BYTES = 10 * 1024 * 1024L // 10 MB strict hard limit
+        // Maximum allowable combined cache on disk (Audio 50MB + Images 60MB + Temp 10MB = 120MB)
+        const val MAX_COMBINED_CACHE_BYTES = 120 * 1024 * 1024L
 
         @Volatile
         private var instance: StorageCleanupManager? = null
@@ -73,13 +73,13 @@ class StorageCleanupManager(private val context: Context) {
             }
         }
 
-        // 3. Trim audio cache if approaching limit, preserving current song buffer
-        AudioCacheHolder.pruneOldestAudio(targetBytes = 6 * 1024 * 1024L, preserveKeys = preserveKeys)
+        // 3. Trim audio cache if approaching limit (35 MB target), strictly preserving active track buffer
+        AudioCacheHolder.pruneOldestAudio(targetBytes = 35 * 1024 * 1024L, preserveKeys = preserveKeys)
 
-        // 4. Trim in-memory caches to prevent memory creep
+        // 4. Trim in-memory caches to prevent memory creep while preserving high hit rate
         trimInMemoryCaches()
 
-        // 5. Verify combined cache size. If over budget (>10MB), trim oldest cache entries
+        // 5. Verify combined cache size. If over budget (>120MB), trim oldest non-critical cache entries
         enforceCombinedCacheBudget(preserveKeys)
     }
 
@@ -120,22 +120,23 @@ class StorageCleanupManager(private val context: Context) {
      */
     private fun trimInMemoryCaches() {
         try {
-            // Trim searchCache if > 30 entries
-            if (JioSaavnAudioProvider.searchCache.size > 30) {
-                val keysToRemove = JioSaavnAudioProvider.searchCache.keys().toList().take(15)
+            // Trim searchCache if > 100 entries
+            if (JioSaavnAudioProvider.searchCache.size > 100) {
+                val keysToRemove = JioSaavnAudioProvider.searchCache.keys().toList().take(40)
                 keysToRemove.forEach { JioSaavnAudioProvider.searchCache.remove(it) }
             }
 
-            // Trim streamCache if > 40 entries
-            if (JioSaavnAudioProvider.streamCache.size > 40) {
-                val keysToRemove = JioSaavnAudioProvider.streamCache.keys().toList().take(20)
+            // Trim streamCache if > 250 entries
+            if (JioSaavnAudioProvider.streamCache.size > 250) {
+                val keysToRemove = JioSaavnAudioProvider.streamCache.keys().toList().take(80)
                 keysToRemove.forEach { JioSaavnAudioProvider.streamCache.remove(it) }
             }
         } catch (_: Exception) {}
     }
 
     /**
-     * Enforces that total cache directory size stays strictly within 10 MB.
+     * Enforces that total cache directory size stays strictly within bounds.
+     * Audio and image caches manage their own LRU indices (SimpleCache and Coil DiskCache).
      * Preserves databases (.db, .db-wal) and active playback keys.
      */
     private fun enforceCombinedCacheBudget(preserveKeys: Set<String> = emptySet()) {
@@ -144,10 +145,11 @@ class StorageCleanupManager(private val context: Context) {
 
         val totalCache = calculateDirectorySize(cacheDir)
         if (totalCache > MAX_COMBINED_CACHE_BYTES) {
-            // If total cache exceeds 10 MB, sort non-essential files by last modified and prune oldest down to 7.5 MB
             val allFiles = cacheDir.walkTopDown()
                 .filter { file ->
                     file.isFile &&
+                    !file.absolutePath.contains("audio_cache") &&
+                    !file.absolutePath.contains("image_cache") &&
                     !file.name.endsWith(".db") &&
                     !file.name.endsWith(".db-wal") &&
                     !file.name.endsWith(".db-shm") &&
@@ -157,7 +159,7 @@ class StorageCleanupManager(private val context: Context) {
                 .toList()
 
             var currentSize = totalCache
-            val targetBytes = (MAX_COMBINED_CACHE_BYTES * 0.75).toLong() // 7.5 MB
+            val targetBytes = (MAX_COMBINED_CACHE_BYTES * 0.75).toLong()
             for (file in allFiles) {
                 if (currentSize <= targetBytes) break
                 val sz = file.length()

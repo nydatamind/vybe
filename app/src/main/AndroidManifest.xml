@@ -80,6 +80,15 @@
             </intent-filter>
         </receiver>
 
+        <!-- Download Cancel Receiver -->
+        <receiver
+            android:name=".playback.CancelDownloadReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.example.vybe.playback.ACTION_CANCEL_DOWNLOAD" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>

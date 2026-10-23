@@ -187,7 +187,7 @@ fun QueueScreen(
                             )
                         }
 
-                        itemsIndexed(upNext) { index, track ->
+                        itemsIndexed(upNext, key = { index, track -> "${track.id}_${playbackState.queueIndex + 1 + index}" }) { index, track ->
                             val actualIndex = playbackState.queueIndex + 1 + index
                             Row(
                                 modifier = Modifier

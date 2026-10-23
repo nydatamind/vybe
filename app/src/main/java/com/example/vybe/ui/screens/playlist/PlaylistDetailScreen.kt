@@ -711,7 +711,7 @@ private fun AddSongsToPlaylistSheet(
                         .heightIn(max = 380.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(results) { song ->
+                    items(results, key = { it.id }) { song ->
                         val isAdded = existingTracks.any { it.id == song.id }
                         Surface(
                             color = DarkCard,

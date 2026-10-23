@@ -109,7 +109,7 @@ fun RecentlyPlayedScreen(
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    items(historyTracks) { track ->
+                    items(historyTracks, key = { it.id }) { track ->
                         TrackItem(
                             track = track,
                             isPlaying = playbackState.isPlaying,

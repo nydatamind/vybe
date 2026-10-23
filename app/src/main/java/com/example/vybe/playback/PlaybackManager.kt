@@ -43,7 +43,7 @@ import kotlinx.coroutines.withContext
 
 object AudioCacheHolder {
     private var simpleCache: androidx.media3.datasource.cache.SimpleCache? = null
-    const val MAX_AUDIO_CACHE_BYTES = 8 * 1024 * 1024L // 8 MB strict hard limit
+    const val MAX_AUDIO_CACHE_BYTES = 50 * 1024 * 1024L // 50 MB high-speed audio buffer cache
 
     @Synchronized
     fun getCache(context: Context): androidx.media3.datasource.cache.SimpleCache? {
@@ -107,7 +107,7 @@ object AudioCacheHolder {
      * Preserves [preserveKeys] so current playback buffer is NEVER interrupted.
      */
     @Synchronized
-    fun pruneOldestAudio(targetBytes: Long = 6 * 1024 * 1024L, preserveKeys: Set<String> = emptySet()) {
+    fun pruneOldestAudio(targetBytes: Long = 35 * 1024 * 1024L, preserveKeys: Set<String> = emptySet()) {
         val cache = simpleCache ?: return
         try {
             var currentSpace = cache.cacheSpace
@@ -569,8 +569,19 @@ class PlaybackManager(
                                     streamUrl = liveResolved.streamUrl,
                                     durationMs = liveResolved.durationMs
                                 )
+                                JioSaavnAudioProvider.streamCache[resolvedTrack.id] = resolvedTrack.streamUrl
                                 withContext(Dispatchers.Main) {
-                                    _playbackState.update { it.copy(currentTrack = resolvedTrack, durationMs = resolvedTrack.durationMs) }
+                                    _playbackState.update { state ->
+                                        val idx = state.queueIndex
+                                        val updatedQ = if (idx in state.queue.indices && state.queue[idx].id == resolvedTrack.id) {
+                                            state.queue.toMutableList().also { it[idx] = resolvedTrack }
+                                        } else state.queue
+                                        state.copy(
+                                            queue = updatedQ,
+                                            currentTrack = resolvedTrack,
+                                            durationMs = resolvedTrack.durationMs
+                                        )
+                                    }
                                     playMediaItem(resolvedTrack, currentPos)
                                 }
                                 return@launch
@@ -729,6 +740,185 @@ class PlaybackManager(
         }
     }
 
+    private fun prebufferUpcomingTrack(track: Track) {
+        if (track.streamUrl.isBlank() || !track.streamUrl.startsWith("http")) return
+        scope.launch(Dispatchers.IO) {
+            try {
+                val cache = AudioCacheHolder.getCache(context) ?: return@launch
+                val cacheKey = track.id.ifBlank { track.streamUrl }
+                if (cache.isCached(cacheKey, 0L, 256 * 1024L)) return@launch
+
+                val dataSource = cacheDataSourceFactory?.createDataSource() ?: return@launch
+                val dataSpec = androidx.media3.datasource.DataSpec.Builder()
+                    .setUri(Uri.parse(track.streamUrl))
+                    .setKey(cacheKey)
+                    .setPosition(0L)
+                    .setLength(512 * 1024L) // 512 KB instant prime buffer
+                    .build()
+
+                val writer = androidx.media3.datasource.cache.CacheWriter(
+                    dataSource,
+                    dataSpec,
+                    null,
+                    null
+                )
+                writer.cache()
+            } catch (_: Exception) {
+                // Non-blocking pre-cache
+            }
+        }
+    }
+
+    private fun preResolveAndBufferUpcomingTracks(currentIndex: Int) {
+        scope.launch(Dispatchers.IO) {
+            try {
+                val state = _playbackState.value
+                val nextIdx = currentIndex + 1
+                if (nextIdx < state.queue.size) {
+                    val nextTrack = state.queue[nextIdx]
+                    var resolvedTrack = nextTrack
+
+                    if (nextTrack.streamUrl.isBlank() || !nextTrack.streamUrl.startsWith("http")) {
+                        val cached = if (nextTrack.id.isNotBlank()) JioSaavnAudioProvider.streamCache[nextTrack.id] else null
+                        if (!cached.isNullOrBlank()) {
+                            resolvedTrack = nextTrack.copy(streamUrl = cached)
+                        } else {
+                            val liveResolved = musicRepository.resolveFullLengthTrack(nextTrack)
+                            if (liveResolved != null && liveResolved.streamUrl.isNotBlank()) {
+                                resolvedTrack = nextTrack.copy(
+                                    streamUrl = liveResolved.streamUrl,
+                                    durationMs = if (liveResolved.durationMs > 0) liveResolved.durationMs else nextTrack.durationMs
+                                )
+                                if (resolvedTrack.id.isNotBlank()) {
+                                    JioSaavnAudioProvider.streamCache[resolvedTrack.id] = liveResolved.streamUrl
+                                }
+                            }
+                        }
+
+                        if (resolvedTrack.streamUrl.isNotBlank()) {
+                            withContext(Dispatchers.Main) {
+                                _playbackState.update { s ->
+                                    val updatedQ = s.queue.mapIndexed { idx, q ->
+                                        if (idx == nextIdx) resolvedTrack else q
+                                    }
+                                    s.copy(queue = updatedQ)
+                                }
+                            }
+                        }
+                    }
+
+                    if (resolvedTrack.streamUrl.isNotBlank() && resolvedTrack.streamUrl.startsWith("http")) {
+                        prebufferUpcomingTrack(resolvedTrack)
+                    }
+
+                    // Pre-resolve N+2 track into memory cache for uninterrupted rapid skips
+                    val secondNextIdx = currentIndex + 2
+                    if (secondNextIdx < state.queue.size) {
+                        val secondNextTrack = state.queue[secondNextIdx]
+                        if (secondNextTrack.streamUrl.isBlank() && secondNextTrack.id.isNotBlank() && !JioSaavnAudioProvider.streamCache.containsKey(secondNextTrack.id)) {
+                            val resolved2 = musicRepository.resolveFullLengthTrack(secondNextTrack)
+                            if (resolved2 != null && resolved2.streamUrl.isNotBlank() && resolved2.id.isNotBlank()) {
+                                JioSaavnAudioProvider.streamCache[resolved2.id] = resolved2.streamUrl
+                            }
+                        }
+                    }
+                }
+            } catch (_: Exception) {
+                // Non-blocking pre-resolution
+            }
+        }
+    }
+
+    private fun playOrResolveTrack(
+        track: Track,
+        targetIndex: Int,
+        skippedTrack: Track? = null,
+        explicitPositionMs: Long? = null
+    ) {
+        activePlayJob?.cancel()
+        retryCount = 0
+        lastFailedTrackId = null
+
+        val cachedStream = if (track.id.isNotBlank()) JioSaavnAudioProvider.streamCache[track.id] else null
+        val directUrl = if (track.isDownloaded && !track.downloadPath.isNullOrBlank()) {
+            track.downloadPath!!
+        } else if (track.streamUrl.isNotBlank() && track.streamUrl.startsWith("http") && !track.streamUrl.contains("itunes.apple.com") && !track.streamUrl.endsWith(".jpg") && !track.streamUrl.endsWith(".png")) {
+            track.streamUrl
+        } else (cachedStream ?: "")
+
+        val playableTrack = if (directUrl.isNotBlank() && track.streamUrl.isBlank()) {
+            track.copy(streamUrl = directUrl)
+        } else track
+
+        val hasDirectUrl = directUrl.isNotBlank()
+
+        val introSkip = if (isAutoSkipIntroOutroEnabled && (playableTrack.durationMs == 0L || playableTrack.durationMs > AudioAnalysisManager.MIN_DURATION_FOR_SKIP_MS)) AudioAnalysisManager.FIXED_INTRO_MS else 0L
+        val outroSkip = if (isAutoSkipIntroOutroEnabled && (playableTrack.durationMs == 0L || playableTrack.durationMs > AudioAnalysisManager.MIN_DURATION_FOR_SKIP_MS)) AudioAnalysisManager.FIXED_OUTRO_MS else 0L
+        currentTrackIntroSkipMs = introSkip
+        currentTrackOutroSkipMs = outroSkip
+        hasSkippedOutroForCurrentTrack = false
+
+        // 1. Instant optimistic UI update (0ms perceived latency!)
+        recordSessionPlayed(playableTrack)
+        _playbackState.update {
+            it.copy(
+                currentTrack = playableTrack,
+                queueIndex = targetIndex,
+                currentPositionMs = explicitPositionMs ?: introSkip,
+                durationMs = playableTrack.durationMs,
+                isPlaying = true,
+                isBuffering = !hasDirectUrl
+            )
+        }
+
+        if (hasDirectUrl) {
+            playMediaItem(playableTrack, explicitPositionMs)
+            triggerBackgroundCachePrune(activeTrack = playableTrack, skippedTrack = skippedTrack)
+            scope.launch { musicRepository.recordPlayback(playableTrack) }
+            preResolveAndBufferUpcomingTracks(targetIndex)
+        } else {
+            // Immediate non-blocking stream resolution with zero artificial delay
+            activePlayJob = scope.launch(Dispatchers.IO) {
+                val resolved = musicRepository.resolveFullLengthTrack(playableTrack)
+                if (resolved != null && resolved.streamUrl.isNotBlank()) {
+                    val fullPlayable = playableTrack.copy(
+                        streamUrl = resolved.streamUrl,
+                        durationMs = if (resolved.durationMs > 0) resolved.durationMs else playableTrack.durationMs
+                    )
+                    if (fullPlayable.id.isNotBlank()) {
+                        JioSaavnAudioProvider.streamCache[fullPlayable.id] = resolved.streamUrl
+                    }
+                    withContext(Dispatchers.Main) {
+                        val stateNow = _playbackState.value
+                        if (stateNow.queueIndex == targetIndex) {
+                            val updatedQueue = stateNow.queue.mapIndexed { idx, q ->
+                                if (idx == targetIndex) fullPlayable else q
+                            }
+                            _playbackState.update {
+                                it.copy(
+                                    currentTrack = fullPlayable,
+                                    queue = updatedQueue,
+                                    durationMs = fullPlayable.durationMs,
+                                    isBuffering = false
+                                )
+                            }
+                            playMediaItem(fullPlayable, explicitPositionMs)
+                            triggerBackgroundCachePrune(activeTrack = fullPlayable, skippedTrack = skippedTrack)
+                        }
+                    }
+                    musicRepository.recordPlayback(fullPlayable)
+                    preResolveAndBufferUpcomingTracks(targetIndex)
+                } else {
+                    withContext(Dispatchers.Main) {
+                        _playbackState.update { it.copy(isBuffering = false) }
+                        // If stream resolution failed, advance smoothly to next song
+                        skipToNext()
+                    }
+                }
+            }
+        }
+    }
+
     fun playTrack(track: Track, newQueue: List<Track> = listOf(track)) {
         activePlayJob?.cancel()
         retryCount = 0
@@ -743,104 +933,26 @@ class PlaybackManager(
         }
         val targetIndex = activeQueue.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
 
-        val introSkip = if (isAutoSkipIntroOutroEnabled && (track.durationMs == 0L || track.durationMs > AudioAnalysisManager.MIN_DURATION_FOR_SKIP_MS)) AudioAnalysisManager.FIXED_INTRO_MS else 0L
-        val outroSkip = if (isAutoSkipIntroOutroEnabled && (track.durationMs == 0L || track.durationMs > AudioAnalysisManager.MIN_DURATION_FOR_SKIP_MS)) AudioAnalysisManager.FIXED_OUTRO_MS else 0L
-        currentTrackIntroSkipMs = introSkip
-        currentTrackOutroSkipMs = outroSkip
-        hasSkippedOutroForCurrentTrack = false
-
-        val initialPosition = introSkip
-
-        // Check if stream URL is already pre-cached in memory for instant zero-lag playback
-        val cachedStream = if (track.id.isNotBlank()) JioSaavnAudioProvider.streamCache[track.id] else null
-        val directUrl = if (track.streamUrl.isNotBlank()) track.streamUrl else (cachedStream ?: "")
-        val initialPlayableTrack = if (directUrl.isNotBlank() && track.streamUrl.isBlank()) {
-            track.copy(streamUrl = directUrl)
-        } else track
-
-        // Discard cache of previous track if manually skipped
         val previousTrack = _playbackState.value.currentTrack
         if (previousTrack != null && previousTrack.id != track.id) {
             recordFastSkipIfApplicable(previousTrack)
-            triggerBackgroundCachePrune(activeTrack = initialPlayableTrack, skippedTrack = previousTrack)
         }
 
-        // 1. Optimistic UI update: instantly update track, duration, queue, and playing state (<5ms)
-        recordSessionPlayed(initialPlayableTrack)
         _playbackState.update {
             it.copy(
-                currentTrack = initialPlayableTrack,
                 queue = activeQueue,
-                queueIndex = targetIndex,
-                currentPositionMs = initialPosition,
-                durationMs = track.durationMs,
-                isPlaying = true,
-                isBuffering = directUrl.isBlank()
+                queueIndex = targetIndex
             )
         }
 
-        val hasDirectUrl = directUrl.isNotBlank() && 
-            directUrl.startsWith("http") &&
-            !directUrl.contains("itunes.apple.com") &&
-            !directUrl.endsWith(".jpg") &&
-            !directUrl.endsWith(".png") &&
-            !directUrl.endsWith(".webp")
+        playOrResolveTrack(track, targetIndex, previousTrack)
 
-        // 2. If track has direct or pre-cached streaming URL, start playback INSTANTLY (<50ms)
-        if (hasDirectUrl) {
-            playMediaItem(initialPlayableTrack)
-        }
-
-        // 3. Resolve stream in background if needed & populate dynamic Autoplay Queue
-        activePlayJob = scope.launch(Dispatchers.IO) {
-            var playableTrack = initialPlayableTrack
-            if (!hasDirectUrl) {
-                val resolvedFull = musicRepository.resolveFullLengthTrack(playableTrack)
-                if (resolvedFull != null && resolvedFull.streamUrl.isNotBlank()) {
-                    playableTrack = playableTrack.copy(
-                        streamUrl = resolvedFull.streamUrl,
-                        durationMs = resolvedFull.durationMs
-                    )
-                    withContext(Dispatchers.Main) {
-                        _playbackState.update { state ->
-                            if (state.currentTrack?.id == track.id) {
-                                state.copy(currentTrack = playableTrack, durationMs = playableTrack.durationMs)
-                            } else state
-                        }
-                        playMediaItem(playableTrack)
-                    }
-                } else {
-                    withContext(Dispatchers.Main) {
-                        _playbackState.update { it.copy(isBuffering = false) }
-                    }
-                }
-            }
-
-            // Next Song Recommendation + Autoplay Engine: Generate dynamic queue
+        // Autoplay expansion in background
+        scope.launch(Dispatchers.IO) {
             if (targetQueue.size <= 1) {
-                recalculateUpcomingQueue(playableTrack)
+                recalculateUpcomingQueue(track)
             } else if (targetQueue.size <= 4) {
                 checkAndExtendAutoplayQueue()
-            }
-
-            // Proactively resolve next track in queue so next track starts instantly with 0ms delay
-            val nextTrack = _playbackState.value.queue.getOrNull(targetIndex + 1) ?: activeQueue.getOrNull(targetIndex + 1)
-            if (nextTrack != null && nextTrack.streamUrl.isBlank()) {
-                try {
-                    musicRepository.resolveFullLengthTrack(nextTrack)
-                } catch (e: Exception) {
-                    // Non-blocking pre-fetch
-                }
-            }
-
-            musicRepository.recordPlayback(playableTrack)
-            val liked = musicRepository.isTrackLiked(playableTrack.id)
-            if (liked != playableTrack.isLiked) {
-                withContext(Dispatchers.Main) {
-                    _playbackState.update { state ->
-                        state.copy(currentTrack = state.currentTrack?.copy(isLiked = liked))
-                    }
-                }
             }
         }
     }
@@ -875,10 +987,16 @@ class PlaybackManager(
     private fun triggerBackgroundCachePrune(activeTrack: Track, skippedTrack: Track? = null) {
         scope.launch(Dispatchers.IO) {
             try {
-                val activeKeys = setOfNotNull(
-                    activeTrack.id.takeIf { it.isNotBlank() },
-                    activeTrack.streamUrl.takeIf { it.isNotBlank() }
-                )
+                val state = _playbackState.value
+                val upcomingTracks = state.queue.drop(state.queueIndex + 1).take(2)
+                val activeKeys = buildSet {
+                    if (activeTrack.id.isNotBlank()) add(activeTrack.id)
+                    if (activeTrack.streamUrl.isNotBlank()) add(activeTrack.streamUrl)
+                    for (upcoming in upcomingTracks) {
+                        if (upcoming.id.isNotBlank()) add(upcoming.id)
+                        if (upcoming.streamUrl.isNotBlank()) add(upcoming.streamUrl)
+                    }
+                }
                 if (skippedTrack != null && !skippedTrack.isDownloaded) {
                     val skippedKeys = listOfNotNull(
                         skippedTrack.id.takeIf { it.isNotBlank() },
@@ -888,8 +1006,8 @@ class PlaybackManager(
                         AudioCacheHolder.removeTrackCache(skippedKeys, preserveKeys = activeKeys)
                     }
                 }
-                // LRU pruning if total audio cache exceeds ~6 MB, strictly preserving active track buffer
-                AudioCacheHolder.pruneOldestAudio(targetBytes = 6 * 1024 * 1024L, preserveKeys = activeKeys)
+                // LRU pruning if total audio cache exceeds ~35 MB, strictly preserving active track buffer
+                AudioCacheHolder.pruneOldestAudio(targetBytes = 35 * 1024 * 1024L, preserveKeys = activeKeys)
                 // Schedule general storage cleanup (temp files, partial chunks, limits)
                 com.example.vybe.core.storage.StorageCleanupManager.getInstance(context).scheduleMaintenance(activeKeys)
             } catch (e: Exception) {
@@ -1001,20 +1119,11 @@ class PlaybackManager(
         val nextIndex = state.queueIndex + 1
         if (nextIndex < queue.size) {
             val nextTrack = queue[nextIndex]
-            _playbackState.update { it.copy(currentTrack = nextTrack, queueIndex = nextIndex) }
-            playMediaItem(nextTrack)
-            recordSessionPlayed(nextTrack)
-            scope.launch { musicRepository.recordPlayback(nextTrack) }
-            triggerBackgroundCachePrune(activeTrack = nextTrack, skippedTrack = skipped)
-            // Dynamic Context Switch: The newly playing song becomes the NEW RECOMMENDATION CONTEXT!
+            playOrResolveTrack(nextTrack, nextIndex, skipped)
             recalculateUpcomingQueue(nextTrack)
         } else if (state.repeatMode == RepeatMode.ALL && queue.isNotEmpty()) {
             val firstTrack = queue[0]
-            _playbackState.update { it.copy(currentTrack = firstTrack, queueIndex = 0) }
-            playMediaItem(firstTrack)
-            recordSessionPlayed(firstTrack)
-            scope.launch { musicRepository.recordPlayback(firstTrack) }
-            triggerBackgroundCachePrune(activeTrack = firstTrack, skippedTrack = skipped)
+            playOrResolveTrack(firstTrack, 0, skipped)
             recalculateUpcomingQueue(firstTrack)
         } else {
             // Reached end of queue: immediately transition using local instant fallback so music never stops!
@@ -1024,17 +1133,14 @@ class PlaybackManager(
                 if (instantTracks.isNotEmpty()) {
                     val nextTrack = instantTracks.first()
                     val immediateQueue = queue + instantTracks
+                    val newTargetIndex = queue.size
                     _playbackState.update {
                         it.copy(
                             queue = immediateQueue,
-                            queueIndex = queue.size,
-                            currentTrack = nextTrack
+                            queueIndex = newTargetIndex
                         )
                     }
-                    playMediaItem(nextTrack)
-                    recordSessionPlayed(nextTrack)
-                    scope.launch { musicRepository.recordPlayback(nextTrack) }
-                    triggerBackgroundCachePrune(activeTrack = nextTrack, skippedTrack = skipped)
+                    playOrResolveTrack(nextTrack, newTargetIndex, skipped)
                     recalculateUpcomingQueue(nextTrack)
                 } else {
                     scope.launch(Dispatchers.IO) {
@@ -1050,18 +1156,15 @@ class PlaybackManager(
                         if (freshBatch.isNotEmpty()) {
                             val nextTrack = freshBatch.first()
                             val updatedQueue = queue + freshBatch
+                            val newTargetIndex = queue.size
                             withContext(Dispatchers.Main) {
                                 _playbackState.update {
                                     it.copy(
                                         queue = updatedQueue,
-                                        queueIndex = queue.size,
-                                        currentTrack = nextTrack
+                                        queueIndex = newTargetIndex
                                     )
                                 }
-                                playMediaItem(nextTrack)
-                                recordSessionPlayed(nextTrack)
-                                scope.launch { musicRepository.recordPlayback(nextTrack) }
-                                triggerBackgroundCachePrune(activeTrack = nextTrack, skippedTrack = skipped)
+                                playOrResolveTrack(nextTrack, newTargetIndex, skipped)
                                 recalculateUpcomingQueue(nextTrack)
                             }
                         }
@@ -1087,10 +1190,7 @@ class PlaybackManager(
             val skipped = state.currentTrack
             recordFastSkipIfApplicable(skipped)
             val prevTrack = state.queue[prevIndex]
-            _playbackState.update { it.copy(currentTrack = prevTrack, queueIndex = prevIndex) }
-            playMediaItem(prevTrack)
-            scope.launch { musicRepository.recordPlayback(prevTrack) }
-            triggerBackgroundCachePrune(activeTrack = prevTrack, skippedTrack = skipped)
+            playOrResolveTrack(prevTrack, prevIndex, skipped)
         } else {
             hasSkippedOutroForCurrentTrack = false
             seekTo(introSkip)

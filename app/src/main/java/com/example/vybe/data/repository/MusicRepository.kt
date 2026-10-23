@@ -706,6 +706,12 @@ class MusicRepository(
     }
 
     suspend fun resolveFullLengthTrack(track: Track): Track? = withContext(Dispatchers.IO) {
+        if (track.isDownloaded && !track.downloadPath.isNullOrBlank()) {
+            return@withContext track.copy(streamUrl = track.downloadPath)
+        }
+        if (track.streamUrl.isNotBlank() && (track.streamUrl.startsWith("http") || track.streamUrl.startsWith("/"))) {
+            return@withContext track
+        }
         if (track.id.isNotBlank()) {
             val url = audioProvider.getStreamUrl(track)
             if (!url.isNullOrBlank()) {

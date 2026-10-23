@@ -277,7 +277,7 @@ fun LibraryScreen(
                             )
                         }
                     } else {
-                        items(savedArtists) { artist ->
+                        items(savedArtists, key = { it.id }) { artist ->
                             Surface(
                                 color = DarkCard,
                                 shape = RoundedCornerShape(14.dp),

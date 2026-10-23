@@ -181,7 +181,7 @@ fun AlbumDetailScreen(
                 }
 
                 // Tracks in Album
-                items(tracks) { track ->
+                items(tracks, key = { it.id }) { track ->
                     TrackItem(
                         track = track,
                         isPlaying = playbackState.isPlaying,

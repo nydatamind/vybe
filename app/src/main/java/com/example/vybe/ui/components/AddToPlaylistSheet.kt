@@ -295,7 +295,7 @@ fun AddToPlaylistSheet(
                         .heightIn(max = 280.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(playlists) { pl ->
+                    items(playlists, key = { it.id }) { pl ->
                         Surface(
                             color = DarkCard,
                             shape = RoundedCornerShape(12.dp),

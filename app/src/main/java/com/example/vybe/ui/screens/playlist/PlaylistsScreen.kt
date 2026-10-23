@@ -157,7 +157,7 @@ fun PlaylistsScreen(
                         )
                     }
                 } else {
-                    items(playlists) { playlist ->
+                    items(playlists, key = { it.id }) { playlist ->
                         Surface(
                             color = DarkCard,
                             shape = RoundedCornerShape(14.dp),

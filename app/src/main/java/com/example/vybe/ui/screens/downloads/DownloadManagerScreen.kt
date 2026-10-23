@@ -259,7 +259,7 @@ fun DownloadManagerScreen(
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    items(downloadedTracks) { track ->
+                    items(downloadedTracks, key = { it.id }) { track ->
                         TrackItem(
                             track = track,
                             isPlaying = playbackState.isPlaying,

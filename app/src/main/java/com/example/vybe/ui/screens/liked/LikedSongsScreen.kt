@@ -183,7 +183,7 @@ fun LikedSongsScreen(
                 }
 
                 // Track items
-                items(likedTracks) { track ->
+                items(likedTracks, key = { it.id }) { track ->
                     TrackItem(
                         track = track,
                         isPlaying = playbackState.isPlaying,

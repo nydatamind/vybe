@@ -131,7 +131,7 @@ fun EqualizerScreen(
             Text("Presets", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             Spacer(modifier = Modifier.height(8.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(state.presets) { preset ->
+                items(state.presets, key = { it }) { preset ->
                     val isSelected = state.currentPreset.equals(preset, ignoreCase = true)
                     Box(
                         modifier = Modifier

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -43,7 +44,7 @@ import androidx.compose.material.icons.filled.Forward10
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.PlaylistAdd
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Repeat
@@ -56,7 +57,25 @@ import androidx.compose.material.icons.filled.SurroundSound
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.AnnotatedString
+import com.example.vybe.playback.LyricsManager
+import com.example.vybe.core.model.LrcDocument
+import com.example.vybe.core.model.LyricLine
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -67,6 +86,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -237,39 +257,7 @@ fun FullPlayerModal(
     )
 
     // ==========================================
-    // --- ANIMATION 3 (Index 2): Ethereal Aurora Borealis & Bioluminescent Silk Mesh ---
-    // ==========================================
-    val auroraWavePhase by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = (2f * Math.PI).toFloat(),
-        animationSpec = infiniteRepeatable(
-            animation = tween(if (isPlaying) 4000 else 10000, easing = LinearEasing),
-            repeatMode = AnimRepeatMode.Restart
-        ),
-        label = "auroraWavePhase"
-    )
-    val auroraLevitate by infiniteTransition.animateFloat(
-        initialValue = -6f,
-        targetValue = if (isPlaying) 6f else 0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2200, easing = FastOutSlowInEasing),
-            repeatMode = AnimRepeatMode.Reverse
-        ),
-        label = "auroraLevitate"
-    )
-    val fireflyPhase by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(if (isPlaying) 3500 else 7500, easing = LinearEasing),
-            repeatMode = AnimRepeatMode.Restart
-        ),
-        label = "fireflyPhase"
-    )
-
-    // ==========================================
-    // --- ANIMATION 4 (Index 3): Celestial Galaxy Vortex & Stardust Phase ---
-    // (Preserved exactly as is - user preference)
+    // --- ANIMATION 3 (Index 2): Celestial Galaxy Vortex & Stardust Phase ---
     // ==========================================
     val galaxySpin by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -291,53 +279,38 @@ fun FullPlayerModal(
     )
 
     // ==========================================
-    // --- ANIMATION 5 (Index 4): Sonic Bass Titan & Cyber Shockwave Portal ---
+    // --- THEMES 4 & 5 (Indices 3 & 4): Synced & Karaoke Live Lyrics Engine ---
     // ==========================================
-    val bassShockwaveScale1 by infiniteTransition.animateFloat(
-        initialValue = 0.95f,
-        targetValue = if (isPlaying) 1.55f else 1.10f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(if (isPlaying) 1100 else 2400, easing = FastOutSlowInEasing),
-            repeatMode = AnimRepeatMode.Restart
-        ),
-        label = "bassShockwaveScale1"
-    )
-    val bassShockwaveAlpha1 by infiniteTransition.animateFloat(
-        initialValue = if (isPlaying) 0.90f else 0.40f,
-        targetValue = 0.0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(if (isPlaying) 1100 else 2400, easing = FastOutSlowInEasing),
-            repeatMode = AnimRepeatMode.Restart
-        ),
-        label = "bassShockwaveAlpha1"
-    )
-    val bassShockwaveScale2 by infiniteTransition.animateFloat(
-        initialValue = 0.95f,
-        targetValue = if (isPlaying) 1.40f else 1.08f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(if (isPlaying) 1100 else 2400, delayMillis = 400, easing = FastOutSlowInEasing),
-            repeatMode = AnimRepeatMode.Restart
-        ),
-        label = "bassShockwaveScale2"
-    )
-    val bassShockwaveAlpha2 by infiniteTransition.animateFloat(
-        initialValue = if (isPlaying) 0.85f else 0.35f,
-        targetValue = 0.0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(if (isPlaying) 1100 else 2400, delayMillis = 400, easing = FastOutSlowInEasing),
-            repeatMode = AnimRepeatMode.Restart
-        ),
-        label = "bassShockwaveAlpha2"
-    )
-    val cyberBeamRotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(if (isPlaying) 7000 else 18000, easing = LinearEasing),
-            repeatMode = AnimRepeatMode.Restart
-        ),
-        label = "cyberBeamRotation"
-    )
+    var activeThemeNotice by remember { mutableStateOf<String?>(null) }
+    var noticeTimerJob by remember { mutableStateOf<Job?>(null) }
+
+    var lrcDocument by remember(track.id) { mutableStateOf<LrcDocument?>(null) }
+    var isLoadingLyrics by remember(track.id) { mutableStateOf(false) }
+
+    LaunchedEffect(track.id, currentAnimationIndex) {
+        if (currentAnimationIndex >= 3 && lrcDocument == null && !isLoadingLyrics) {
+            isLoadingLyrics = true
+            try {
+                lrcDocument = LyricsManager.getLyricsForTrack(track)
+            } catch (e: Exception) {
+                lrcDocument = null
+            } finally {
+                isLoadingLyrics = false
+            }
+        }
+    }
+
+    val currentPosition = playbackState.currentPositionMs
+    val lyricLines = lrcDocument?.lines.orEmpty()
+    val currentLineIndex = remember(currentPosition, lyricLines) {
+        if (lyricLines.isEmpty()) -1
+        else {
+            val idx = lyricLines.indexOfLast { it.timeMs <= currentPosition }
+            if (idx == -1) 0 else idx
+        }
+    }
+
+    val mainScrollState = rememberScrollState()
 
     Surface(
         color = DarkBackground,
@@ -350,7 +323,7 @@ fun FullPlayerModal(
                     .statusBarsPadding()
                     .navigationBarsPadding()
                     .padding(horizontal = 24.dp)
-                    .verticalScroll(rememberScrollState()),
+                    .then(if (currentAnimationIndex < 3) Modifier.verticalScroll(mainScrollState) else Modifier),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
@@ -372,11 +345,24 @@ fun FullPlayerModal(
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        // 2-Arrow Button: Cycles through 5 visual background & layout animation styles (No text/labels)
+                        // Cycles through 3 visual themes + 2 live synced/karaoke lyrics themes
                         IconButton(onClick = {
                             val nextIndex = (currentAnimationIndex + 1) % 5
                             coroutineScope.launch {
                                 preferencesManager.setPlayerThemeIndex(nextIndex)
+                            }
+                            activeThemeNotice = when (nextIndex) {
+                                0 -> "✨ Velvet Aura Prism"
+                                1 -> "📊 Cyber Spectrum Stage"
+                                2 -> "🌌 Celestial Galaxy Vortex"
+                                3 -> "🎵 Synced Lyrics (Line-by-Line)"
+                                4 -> "🎤 Karaoke Lyrics (Word-by-Word)"
+                                else -> "Player Theme"
+                            }
+                            noticeTimerJob?.cancel()
+                            noticeTimerJob = coroutineScope.launch {
+                                kotlinx.coroutines.delay(2000)
+                                activeThemeNotice = null
                             }
                         }) {
                             Icon(
@@ -399,9 +385,32 @@ fun FullPlayerModal(
                     }
                 }
 
+                // Sleek animated indicator showing switched theme name
+                AnimatedVisibility(
+                    visible = activeThemeNotice != null,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
+                ) {
+                    Surface(
+                        color = Color(0xEE141722),
+                        shape = RoundedCornerShape(20.dp),
+                        border = BorderStroke(1.dp, VybeEmerald.copy(alpha = 0.6f)),
+                        shadowElevation = 8.dp,
+                        modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
+                    ) {
+                        Text(
+                            text = activeThemeNotice ?: "",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // --- 5 DYNAMIC ANIMATION & POSTER LAYOUT PRESENTATIONS ---
+                // --- 3 VISUAL THEMES + 2 LIVE LYRICS THEMES ---
                 when (currentAnimationIndex) {
                     // Animation 1 — Existing Original: Multi-layer Rotating Ambient Light Aura
                     0 -> {
@@ -645,141 +654,9 @@ fun FullPlayerModal(
                     }
 
                     // =========================================================================
-                    // Animation 3 (Index 2) — Ethereal Aurora Borealis & Bioluminescent Silk Mesh
+                    // Visual Theme 3 (Index 2) — Celestial Galaxy Vortex & Starlight Canvas
                     // =========================================================================
                     2 -> {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth(0.88f)
-                                .aspectRatio(1f),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            // Rotating Chromatic Aurora Halo
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize(1.35f)
-                                    .scale(voiceScaleWide)
-                                    .rotate(auraRotation1 * 0.7f)
-                                    .clip(CircleShape)
-                                    .background(
-                                        Brush.sweepGradient(
-                                            colors = listOf(
-                                                Color(0xFF00FF88).copy(alpha = 0.50f), // Emerald
-                                                Color(0xFF00F5D4).copy(alpha = 0.55f), // Turquoise
-                                                Color(0xFF00E5FF).copy(alpha = 0.60f), // Cyan
-                                                Color(0xFF4D00FF).copy(alpha = 0.50f), // Indigo
-                                                Color(0xFFE040FB).copy(alpha = 0.55f), // Magenta
-                                                Color(0xFFFF5252).copy(alpha = 0.45f), // Coral
-                                                Color(0xFF00FF88).copy(alpha = 0.50f)  // Emerald
-                                            )
-                                        )
-                                    )
-                            )
-
-                            // Hypnotic Undulating Aurora Waves & Ascending Fireflies Canvas
-                            Canvas(modifier = Modifier.fillMaxSize(1.48f)) {
-                                val w = size.width
-                                val h = size.height
-                                val midX = w / 2f
-                                val midY = h / 2f
-
-                                // 1. Soft Layered Translucent Fluid Aurora Ribbons
-                                val waveColors = listOf(
-                                    listOf(Color(0xFF00FF88), Color(0xFF00E5FF)),
-                                    listOf(Color(0xFF00E5FF), Color(0xFF8A2BE2)),
-                                    listOf(Color(0xFFE040FB), Color(0xFF00F5D4))
-                                )
-                                for (wIndex in 0 until 3) {
-                                    val yBase = h * (0.28f + wIndex * 0.24f)
-                                    val waveAmp = if (isPlaying) (24.dp.toPx() + wIndex * 6.dp.toPx()) else 12.dp.toPx()
-                                    val waveFreq = 2.0 + wIndex * 0.8
-                                    val phaseOffset = auroraWavePhase + (wIndex * 1.8f)
-
-                                    val wavePath = Path().apply {
-                                        moveTo(0f, yBase)
-                                        for (x in 0..w.toInt() step 5) {
-                                            val y = yBase + sin((x / w * waveFreq * Math.PI + phaseOffset).toDouble()).toFloat() * waveAmp
-                                            lineTo(x.toFloat(), y)
-                                        }
-                                    }
-
-                                    drawPath(
-                                        path = wavePath,
-                                        brush = Brush.horizontalGradient(waveColors[wIndex]),
-                                        style = Stroke(width = (4f + wIndex * 1.5f).dp.toPx()),
-                                        alpha = if (isPlaying) 0.65f else 0.35f
-                                    )
-                                }
-
-                                // 2. 16 Rising Bioluminescent Fireflies
-                                for (i in 0 until 16) {
-                                    val seedX = ((i * 31) % 100) / 100f
-                                    val fireflyY = (1f - ((fireflyPhase * 1.1f + i * 0.0625f) % 1f)) * h
-                                    val sway = sin((fireflyPhase * 2.5 * Math.PI + i * 1.2).toDouble()).toFloat() * 16.dp.toPx()
-                                    val fireflyX = (seedX * w + sway).coerceIn(0f, w)
-                                    val fColor = when (i % 4) {
-                                        0 -> Color(0xFF00FF88) // Emerald
-                                        1 -> Color(0xFF00F5D4) // Turquoise
-                                        2 -> Color(0xFFFFD700) // Golden Glow
-                                        else -> Color(0xFF00E5FF) // Cyan
-                                    }
-                                    val fRadius = (2.2f + (i % 3) * 1.4f).dp.toPx()
-                                    val fAlpha = (sin((fireflyY / h * Math.PI).toDouble()).toFloat() * 0.85f).coerceIn(0.15f, 0.95f)
-
-                                    drawCircle(
-                                        brush = Brush.radialGradient(
-                                            colors = listOf(fColor.copy(alpha = fAlpha), Color.Transparent),
-                                            center = Offset(fireflyX, fireflyY),
-                                            radius = fRadius * 2.2f
-                                        ),
-                                        radius = fRadius * 2.2f,
-                                        center = Offset(fireflyX, fireflyY)
-                                    )
-                                    drawCircle(
-                                        color = Color.White.copy(alpha = fAlpha),
-                                        radius = fRadius * 0.5f,
-                                        center = Offset(fireflyX, fireflyY)
-                                    )
-                                }
-                            }
-
-                            // Levitating Frosted Glass Poster Card
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .offset(y = auroraLevitate.dp)
-                                    .scale(posterBreathScale)
-                                    .clip(RoundedCornerShape(28.dp))
-                                    .border(
-                                        width = 2.dp,
-                                        brush = Brush.sweepGradient(
-                                            listOf(
-                                                Color(0xFF00FF88),
-                                                Color(0xFF00F5D4),
-                                                Color(0xFF00E5FF),
-                                                Color(0xFF8A2BE2),
-                                                Color(0xFFFF5252),
-                                                Color(0xFF00FF88)
-                                            )
-                                        ),
-                                        shape = RoundedCornerShape(28.dp)
-                                    )
-                                    .shadow(32.dp, RoundedCornerShape(28.dp))
-                            ) {
-                                AsyncImage(
-                                    model = track.artworkUrl,
-                                    contentDescription = track.title,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            }
-                        }
-                    }
-
-                    // =========================================================================
-                    // Animation 4 (Index 3) — Celestial Galaxy Spiral Vortex & Starlight (Preserved)
-                    // =========================================================================
-                    3 -> {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth(0.88f)
@@ -888,158 +765,509 @@ fun FullPlayerModal(
                     }
 
                     // =========================================================================
-                    // Animation 5 (Index 4) — Sonic Bass Titan & Cyber Shockwave Portal
+                    // Live Lyrics Theme 1 (Index 3) — Line-by-Line Synced Lyrics
                     // =========================================================================
-                    4 -> {
-                        Box(
+                    3 -> {
+                        val lyricsListState = rememberLazyListState()
+
+                        LaunchedEffect(currentLineIndex) {
+                            if (currentLineIndex in lyricLines.indices) {
+                                lyricsListState.animateScrollToItem(
+                                    index = (currentLineIndex - 1).coerceAtLeast(0)
+                                )
+                            }
+                        }
+
+                        Column(
                             modifier = Modifier
-                                .fillMaxWidth(0.88f)
-                                .aspectRatio(1f),
-                            contentAlignment = Alignment.Center
+                                .fillMaxWidth()
+                                .height(380.dp)
+                                .clip(RoundedCornerShape(28.dp))
+                                .background(Brush.verticalGradient(listOf(Color(0xE0131726), Color(0xF00A0D14))))
+                                .border(
+                                    BorderStroke(
+                                        1.5.dp,
+                                        Brush.linearGradient(
+                                            listOf(
+                                                Color(0xFF00FF88).copy(alpha = 0.8f),
+                                                Color(0xFF00E5FF).copy(alpha = 0.6f),
+                                                Color(0xFF8A2BE2).copy(alpha = 0.4f)
+                                            )
+                                        )
+                                    ),
+                                    RoundedCornerShape(28.dp)
+                                )
+                                .padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            // Multi-Ring Expanding Sonic Shockwaves & Sweeping Laser Beams Canvas
-                            Canvas(modifier = Modifier.fillMaxSize(1.52f)) {
-                                val w = size.width
-                                val h = size.height
-                                val midX = w / 2f
-                                val midY = h / 2f
-                                val baseCardHalfSize = w * 0.44f
-
-                                // 1. Sweeping 360° Volumetric Laser Spotlight Beams (4 Quadrants)
-                                for (b in 0 until 4) {
-                                    val beamAngle = (cyberBeamRotation * Math.PI / 180f) + (b * (Math.PI / 2f))
-                                    val beamEndX = midX + cos(beamAngle).toFloat() * (w * 0.70f)
-                                    val beamEndY = midY + sin(beamAngle).toFloat() * (h * 0.70f)
-
-                                    val beamColor = when (b % 4) {
-                                        0 -> Color(0xFF00FF88) // Emerald
-                                        1 -> Color(0xFF00E5FF) // Cyan
-                                        2 -> Color(0xFF8A2BE2) // Purple
-                                        else -> Color(0xFFFF007F) // Hot Pink
+                            // Mini Player Header inside Lyrics view
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(42.dp)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .border(1.dp, Color(0xFF00FF88).copy(alpha = 0.6f), RoundedCornerShape(10.dp))
+                                    ) {
+                                        AsyncImage(
+                                            model = track.artworkUrl,
+                                            contentDescription = track.title,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
                                     }
-
-                                    drawLine(
-                                        brush = Brush.linearGradient(
-                                            colors = listOf(
-                                                beamColor.copy(alpha = if (isPlaying) 0.60f else 0.25f),
-                                                Color.Transparent
-                                            ),
-                                            start = Offset(midX, midY),
-                                            end = Offset(beamEndX, beamEndY)
-                                        ),
-                                        start = Offset(midX, midY),
-                                        end = Offset(beamEndX, beamEndY),
-                                        strokeWidth = 3.dp.toPx(),
-                                        cap = androidx.compose.ui.graphics.StrokeCap.Round
-                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column {
+                                        Text(
+                                            text = track.title,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = track.artistName,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = TextSecondaryDark,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
                                 }
 
-                                // 2. Concentric Pulsing Sonic Shockwave Rounded Rings (Bursting outwards on bass beats)
-                                val shockwaveCornerRadius = 32.dp.toPx()
-                                
-                                // Shockwave 1
-                                val size1 = baseCardHalfSize * 2f * bassShockwaveScale1
-                                val left1 = midX - (size1 / 2f)
-                                val top1 = midY - (size1 / 2f)
-                                drawRoundRect(
-                                    brush = Brush.sweepGradient(
-                                        listOf(
-                                            Color(0xFF00FF88).copy(alpha = bassShockwaveAlpha1),
-                                            Color(0xFF00E5FF).copy(alpha = bassShockwaveAlpha1),
-                                            Color(0xFFFFD700).copy(alpha = bassShockwaveAlpha1),
-                                            Color(0xFF00FF88).copy(alpha = bassShockwaveAlpha1)
-                                        ),
-                                        center = Offset(midX, midY)
-                                    ),
-                                    topLeft = Offset(left1, top1),
-                                    size = androidx.compose.ui.geometry.Size(size1, size1),
-                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(shockwaveCornerRadius * bassShockwaveScale1, shockwaveCornerRadius * bassShockwaveScale1),
-                                    style = Stroke(width = 2.5.dp.toPx())
-                                )
-
-                                // Shockwave 2 (Offset phase)
-                                val size2 = baseCardHalfSize * 2f * bassShockwaveScale2
-                                val left2 = midX - (size2 / 2f)
-                                val top2 = midY - (size2 / 2f)
-                                drawRoundRect(
-                                    brush = Brush.sweepGradient(
-                                        listOf(
-                                            Color(0xFF00E5FF).copy(alpha = bassShockwaveAlpha2),
-                                            Color(0xFFE040FB).copy(alpha = bassShockwaveAlpha2),
-                                            Color(0xFF00FF88).copy(alpha = bassShockwaveAlpha2),
-                                            Color(0xFF00E5FF).copy(alpha = bassShockwaveAlpha2)
-                                        ),
-                                        center = Offset(midX, midY)
-                                    ),
-                                    topLeft = Offset(left2, top2),
-                                    size = androidx.compose.ui.geometry.Size(size2, size2),
-                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(shockwaveCornerRadius * bassShockwaveScale2, shockwaveCornerRadius * bassShockwaveScale2),
-                                    style = Stroke(width = 2.dp.toPx())
-                                )
-
-                                // 3. 24 Radial Kinetic Energy Particles bursting outwards
-                                for (p in 0 until 24) {
-                                    val pAngle = (p.toFloat() / 24f) * 2f * Math.PI.toFloat() + (cyberBeamRotation * 0.05f)
-                                    val pDist = (baseCardHalfSize * 0.95f) + ((stardustPhase * 1.3f + p * 0.0416f) % 1f) * (w * 0.35f)
-                                    val px = midX + cos(pAngle.toDouble()).toFloat() * pDist
-                                    val py = midY + sin(pAngle.toDouble()).toFloat() * pDist
-                                    val pProgress = ((stardustPhase * 1.3f + p * 0.0416f) % 1f)
-                                    val pAlpha = (sin((pProgress * Math.PI).toDouble()).toFloat() * 0.85f).coerceIn(0f, 0.95f)
-
-                                    val pCol = when (p % 3) {
-                                        0 -> Color(0xFF00FF88)
-                                        1 -> Color(0xFF00E5FF)
-                                        else -> Color(0xFFFFD700)
+                                Surface(
+                                    color = Color(0x3300FF88),
+                                    shape = RoundedCornerShape(16.dp),
+                                    border = BorderStroke(1.dp, Color(0x8800FF88))
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.MusicNote,
+                                            contentDescription = null,
+                                            tint = Color(0xFF00FF88),
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "LINE SYNC",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = Color(0xFF00FF88)
+                                        )
                                     }
-
-                                    drawCircle(
-                                        color = pCol.copy(alpha = pAlpha),
-                                        radius = (2.2f + (p % 3)).dp.toPx(),
-                                        center = Offset(px, py)
-                                    )
                                 }
                             }
 
-                            // Bass Titan Cyber Energy Poster Card
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .scale(posterBreathScale)
-                                    .clip(RoundedCornerShape(26.dp))
-                                    .border(
-                                        width = 2.5.dp,
-                                        brush = Brush.sweepGradient(
-                                            listOf(
-                                                Color(0xFFFFD700), // Gold
-                                                Color(0xFF00FF88), // Emerald
-                                                Color(0xFF00E5FF), // Cyan
-                                                Color(0xFF8A2BE2), // Violet
-                                                Color(0xFFFFD700)  // Gold
-                                            )
-                                        ),
-                                        shape = RoundedCornerShape(26.dp)
-                                    )
-                                    .shadow(32.dp, RoundedCornerShape(26.dp))
-                            ) {
-                                AsyncImage(
-                                    model = track.artworkUrl,
-                                    contentDescription = track.title,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-
-                                // High-Tech Cyber Corner Energy Accents
+                            // Synced Lyrics LazyColumn
+                            if (isLoadingLyrics) {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .border(
-                                            BorderStroke(
-                                                1.dp,
-                                                Brush.linearGradient(listOf(Color(0x99FFFFFF), Color(0x22FFFFFF)))
-                                            ),
-                                            RoundedCornerShape(26.dp)
+                                        .padding(24.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "Searching synced lyrics... ✨",
+                                        color = Color.White.copy(alpha = 0.8f),
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            } else if (lyricLines.isEmpty()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(24.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Icon(
+                                            imageVector = Icons.Default.MusicNote,
+                                            contentDescription = null,
+                                            tint = Color(0x8800FF88),
+                                            modifier = Modifier.size(36.dp)
                                         )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text = "No timed lyrics available for this track",
+                                            color = Color.White.copy(alpha = 0.85f),
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            textAlign = TextAlign.Center
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = "Enjoy the rhythm & visuals! 🎧",
+                                            color = TextSecondaryDark,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                }
+                            } else {
+                                LazyColumn(
+                                    state = lyricsListState,
+                                    modifier = Modifier.fillMaxSize(),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    itemsIndexed(lyricLines) { index, line ->
+                                        val isCurrent = index == currentLineIndex
+                                        val isPast = index < currentLineIndex
+
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(14.dp))
+                                                .then(
+                                                    if (isCurrent) {
+                                                        Modifier
+                                                            .background(
+                                                                Brush.horizontalGradient(
+                                                                    listOf(
+                                                                        Color(0x3300FF88),
+                                                                        Color(0x2200E5FF)
+                                                                    )
+                                                                )
+                                                            )
+                                                            .border(
+                                                                BorderStroke(1.dp, Color(0x8800FF88)),
+                                                                RoundedCornerShape(14.dp)
+                                                            )
+                                                    } else Modifier
+                                                )
+                                                .clickable { onSeek(line.timeMs) }
+                                                .padding(horizontal = 14.dp, vertical = if (isCurrent) 12.dp else 8.dp)
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                if (isCurrent) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.PlayArrow,
+                                                        contentDescription = null,
+                                                        tint = Color(0xFF00FF88),
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                }
+                                                Text(
+                                                    text = line.text,
+                                                    fontSize = if (isCurrent) 19.sp else 15.sp,
+                                                    fontWeight = if (isCurrent) FontWeight.ExtraBold else FontWeight.Medium,
+                                                    color = when {
+                                                        isCurrent -> Color.White
+                                                        isPast -> Color(0x66FFFFFF)
+                                                        else -> Color(0xAAFFFFFF)
+                                                    },
+                                                    lineHeight = if (isCurrent) 26.sp else 22.sp
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // =========================================================================
+                    // Live Lyrics Theme 2 (Index 4) — Word-by-Word Live Karaoke Stage
+                    // =========================================================================
+                    4 -> {
+                        val currentLine = lyricLines.getOrNull(currentLineIndex)
+                        val prevLine = if (currentLineIndex > 0) lyricLines.getOrNull(currentLineIndex - 1) else null
+                        val nextLine = lyricLines.getOrNull(currentLineIndex + 1)
+
+                        // Calculate dynamic word-by-word progress within active line
+                        val lineStart = currentLine?.timeMs ?: 0L
+                        val lineEnd = nextLine?.timeMs ?: (lineStart + 3500L)
+                        val lineDuration = (lineEnd - lineStart).coerceAtLeast(1000L)
+                        val lineElapsed = (currentPosition - lineStart).coerceIn(0L, lineDuration)
+                        val lineProgress = (lineElapsed.toFloat() / lineDuration.toFloat()).coerceIn(0f, 1f)
+
+                        val words = remember(currentLine?.text) {
+                            currentLine?.text?.split(" ")?.filter { it.isNotBlank() }.orEmpty()
+                        }
+                        val activeWordCount = (lineProgress * (words.size + 1)).toInt().coerceIn(0, words.size)
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(380.dp)
+                                .clip(RoundedCornerShape(28.dp))
+                                .background(Brush.verticalGradient(listOf(Color(0xF0181528), Color(0xF5090C17))))
+                                .border(
+                                    BorderStroke(
+                                        2.dp,
+                                        Brush.sweepGradient(
+                                            listOf(
+                                                Color(0xFFFFD700),
+                                                Color(0xFF00FF88),
+                                                Color(0xFF00E5FF),
+                                                Color(0xFFE040FB),
+                                                Color(0xFFFFD700)
+                                            )
+                                        )
+                                    ),
+                                    RoundedCornerShape(28.dp)
                                 )
+                                .padding(18.dp),
+                            verticalArrangement = Arrangement.SpaceBetween,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            // Top Bar: Track mini info & glowing Karaoke badge
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .border(1.dp, Color(0xFFFFD700).copy(alpha = 0.8f), RoundedCornerShape(10.dp))
+                                    ) {
+                                        AsyncImage(
+                                            model = track.artworkUrl,
+                                            contentDescription = track.title,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column {
+                                        Text(
+                                            text = track.title,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = track.artistName,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = TextSecondaryDark,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+
+                                Surface(
+                                    color = Color(0x33FF007F),
+                                    shape = RoundedCornerShape(16.dp),
+                                    border = BorderStroke(1.dp, Color(0xFFFF007F))
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Mic,
+                                            contentDescription = null,
+                                            tint = Color(0xFFFF4081),
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "LIVE KARAOKE",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = Color(0xFFFF4081)
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Middle Karaoke Stage: Previous Line + Active Line (Word-by-word) + Progress
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f)
+                                    .padding(vertical = 12.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                if (prevLine != null) {
+                                    Text(
+                                        text = prevLine.text,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = Color(0x44FFFFFF),
+                                        textAlign = TextAlign.Center,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.padding(bottom = 12.dp)
+                                    )
+                                }
+
+                                if (currentLine != null && words.isNotEmpty()) {
+                                    val karaokeAnnotated = buildAnnotatedString {
+                                        words.forEachIndexed { wIdx, word ->
+                                            if (wIdx < activeWordCount) {
+                                                withStyle(
+                                                    SpanStyle(
+                                                        color = Color(0xFF00FF88), // Singing word highlight
+                                                        fontWeight = FontWeight.Black,
+                                                        fontSize = 23.sp
+                                                    )
+                                                ) {
+                                                    append(word)
+                                                }
+                                            } else {
+                                                withStyle(
+                                                    SpanStyle(
+                                                        color = Color(0x66FFFFFF), // Upcoming word
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 23.sp
+                                                    )
+                                                ) {
+                                                    append(word)
+                                                }
+                                            }
+                                            if (wIdx < words.size - 1) append(" ")
+                                        }
+                                    }
+
+                                    Text(
+                                        text = karaokeAnnotated,
+                                        textAlign = TextAlign.Center,
+                                        lineHeight = 30.sp,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 6.dp)
+                                    )
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    // Line Singing Progress Indicator Bar
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth(0.85f)
+                                            .height(5.dp)
+                                            .clip(RoundedCornerShape(3.dp))
+                                            .background(Color(0x33FFFFFF))
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth(lineProgress)
+                                                .fillMaxHeight()
+                                                .clip(RoundedCornerShape(3.dp))
+                                                .background(
+                                                    Brush.horizontalGradient(
+                                                        listOf(
+                                                            Color(0xFFFFD700),
+                                                            Color(0xFF00FF88),
+                                                            Color(0xFF00E5FF)
+                                                        )
+                                                    )
+                                                )
+                                        )
+                                    }
+                                } else if (isLoadingLyrics) {
+                                    Text(
+                                        text = "Loading karaoke lyrics... 🎤",
+                                        color = Color.White.copy(alpha = 0.75f),
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                } else {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(
+                                            text = "Sing Along with VYBE! 🎵",
+                                            color = Color.White,
+                                            fontSize = 18.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = "Lyrics in sync will appear here when available",
+                                            color = TextSecondaryDark,
+                                            fontSize = 13.sp
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Bottom Card: Next Line Preview & Fast Line Skip Controls
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Surface(
+                                    color = Color(0x2200E5FF),
+                                    shape = RoundedCornerShape(12.dp),
+                                    border = BorderStroke(1.dp, Color(0x5500E5FF)),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "NEXT ❯ ",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = Color(0xFF00E5FF)
+                                        )
+                                        Text(
+                                            text = nextLine?.text ?: "Instrumental / Outro",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = Color.White.copy(alpha = 0.85f),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+
+                                if (currentLineIndex > 0) {
+                                    IconButton(
+                                        onClick = {
+                                            val target = lyricLines.getOrNull(currentLineIndex - 1)
+                                            if (target != null) onSeek(target.timeMs)
+                                        },
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Replay10,
+                                            contentDescription = "Previous Line",
+                                            tint = Color(0xFF00FF88),
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+
+                                if (nextLine != null) {
+                                    IconButton(
+                                        onClick = { onSeek(nextLine.timeMs) },
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Forward10,
+                                            contentDescription = "Next Line",
+                                            tint = Color(0xFF00E5FF),
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -1241,7 +1469,7 @@ fun FullPlayerModal(
                 ) {
                     IconButton(onClick = { onAddToPlaylist(track) }) {
                         Icon(
-                            imageVector = Icons.Default.PlaylistAdd,
+                            imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
                             contentDescription = "Add to Playlist",
                             tint = TextSecondaryDark,
                             modifier = Modifier.size(24.dp)

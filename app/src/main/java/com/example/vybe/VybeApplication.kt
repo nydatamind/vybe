@@ -141,13 +141,13 @@ class VybeApplication : Application(), ImageLoaderFactory {
             }
             .memoryCache {
                 MemoryCache.Builder(this)
-                    .maxSizePercent(0.15) // 15% heap limit for lean memory footprint
+                    .maxSizePercent(0.25) // 25% heap limit for instant image reuse across screens
                     .build()
             }
             .diskCache {
                 DiskCache.Builder()
                     .directory(cacheDir.resolve("image_cache"))
-                    .maxSizeBytes(2 * 1024 * 1024L) // 2 MB strict disk cache for album artwork & artist thumbnails
+                    .maxSizeBytes(60 * 1024 * 1024L) // 60 MB persistent disk cache for artwork & avatars
                     .build()
             }
             .respectCacheHeaders(false)

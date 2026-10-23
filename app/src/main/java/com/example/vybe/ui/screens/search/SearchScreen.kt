@@ -156,7 +156,7 @@ fun SearchScreen(
             val context = LocalContext.current
             val keyboardController = LocalSoftwareKeyboardController.current
 
-            // Voice Search launcher for directly speaking song or artist name
+            // Voice & Lyrics Search launcher for speaking song name, artist, or lyrics
             val voiceSearchLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.StartActivityForResult()
             ) { result ->
@@ -165,6 +165,7 @@ fun SearchScreen(
                     val spokenText = matches?.firstOrNull()?.trim()
                     if (!spokenText.isNullOrBlank()) {
                         viewModel.onQueryChanged(spokenText)
+                        viewModel.triggerImmediateSearch()
                     }
                 }
             }
@@ -173,23 +174,23 @@ fun SearchScreen(
                 try {
                     val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                         putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                        putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak song or artist name...")
+                        putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak song name, artist, or lyrics...")
                         putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "hi-IN")
-                        putExtra("android.speech.extra.EXTRA_ADDITIONAL_LANGUAGES", arrayOf("hi-IN", "en-IN", "en-US", "pa-IN"))
-                        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+                        putExtra("android.speech.extra.EXTRA_ADDITIONAL_LANGUAGES", arrayOf("hi-IN", "en-IN", "en-US", "pa-IN", "te-IN", "ta-IN"))
+                        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
                     }
                     voiceSearchLauncher.launch(intent)
                 } catch (e: Exception) {
-                    Toast.makeText(context, "Voice search is not supported on this device", Toast.LENGTH_SHORT).show()
+                    // Fallback to in-app recognition modal if system intent is unavailable
+                    showSongRecognition = true
                 }
             }
 
-            // Search Header Title with Song Voice / Lyrics Recognition Button on top-right
+            // Search Header Title
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
@@ -198,26 +199,6 @@ fun SearchScreen(
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
-
-                // Song Voice / Audio Line Detection Button (Replaced the white mic at top-right corner)
-                Surface(
-                    shape = CircleShape,
-                    color = DarkCard,
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                        .border(1.dp, Color(0x33FFFFFF), CircleShape)
-                        .clickable { showSongRecognition = true }
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.GraphicEq,
-                            contentDescription = "Detect Song by Voice / Lines",
-                            tint = VybeEmeraldBright,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                }
             }
 
             if (showSongRecognition) {
@@ -228,6 +209,7 @@ fun SearchScreen(
                     },
                     onQueryRecognized = { query ->
                         viewModel.onQueryChanged(query)
+                        viewModel.triggerImmediateSearch()
                     },
                     searchTracks = { query ->
                         viewModel.searchDirect(query).tracks
@@ -241,7 +223,7 @@ fun SearchScreen(
                 onValueChange = { viewModel.onQueryChanged(it) },
                 placeholder = {
                     Text(
-                        text = "Search songs, artists, albums, genres...",
+                        text = "Search songs, artists, albums, or lyrics...",
                         color = TextMutedDark,
                         fontSize = 14.sp
                     )
@@ -337,7 +319,7 @@ fun SearchScreen(
                                 contentPadding = PaddingValues(horizontal = 16.dp),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                items(recentSearches.take(6)) { term ->
+                                items(recentSearches.take(6), key = { it }) { term ->
                                     Surface(
                                         color = DarkCard,
                                         shape = RoundedCornerShape(20.dp),
@@ -572,7 +554,7 @@ fun SearchScreen(
                                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
                                     )
                                 }
-                                items(res.tracks) { track ->
+                                items(res.tracks, key = { it.id }) { track ->
                                     TrackItem(
                                         track = track,
                                         isPlaying = playbackState.isPlaying,
@@ -597,7 +579,7 @@ fun SearchScreen(
                                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
                                     )
                                 }
-                                items(res.artists) { artist ->
+                                items(res.artists, key = { it.id }) { artist ->
                                     Surface(
                                         color = DarkCard,
                                         shape = RoundedCornerShape(14.dp),
@@ -657,7 +639,7 @@ fun SearchScreen(
                                     contentPadding = PaddingValues(horizontal = 16.dp),
                                     horizontalArrangement = Arrangement.spacedBy(14.dp)
                                 ) {
-                                    items(res.artists.drop(1)) { artist ->
+                                    items(res.artists.drop(1), key = { it.id }) { artist ->
                                         ArtistCard(
                                             artist = artist,
                                             onClick = { onArtistClick(artist.id) }
@@ -683,7 +665,7 @@ fun SearchScreen(
                                         contentPadding = PaddingValues(horizontal = 16.dp),
                                         horizontalArrangement = Arrangement.spacedBy(14.dp)
                                     ) {
-                                        items(res.albums) { album ->
+                                        items(res.albums, key = { it.id }) { album ->
                                             AlbumCard(
                                                 album = album,
                                                 onClick = { onAlbumClick(album.id) }

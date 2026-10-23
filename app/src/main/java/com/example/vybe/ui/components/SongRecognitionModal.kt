@@ -270,7 +270,7 @@ fun SongRecognitionModal(
                 // SpeechRecognizer not available directly, launch Google Voice Intent
                 val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                    putExtra(RecognizerIntent.EXTRA_PROMPT, "Sing, hum or play a song")
+                    putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak song name, artist, or lyrics...")
                 }
                 voiceSearchIntentLauncher.launch(intent)
             }
@@ -337,7 +337,7 @@ fun SongRecognitionModal(
                         }
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            text = "Song Finder",
+                            text = "Voice & Lyrics Search",
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp
@@ -382,7 +382,7 @@ fun SongRecognitionModal(
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "VYBE needs microphone permission to identify songs playing around you, hums, or lyrics.",
+                        text = "VYBE needs microphone permission to search by song name, artist, or lyrics.",
                         color = TextSecondaryDark,
                         fontSize = 13.sp,
                         textAlign = TextAlign.Center
@@ -694,7 +694,7 @@ fun SongRecognitionModal(
                         onClick = {
                             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                                putExtra(RecognizerIntent.EXTRA_PROMPT, "Sing or speak song lyrics")
+                                putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak song name, artist, or lyrics...")
                                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "hi-IN")
                                 putExtra("android.speech.extra.EXTRA_ADDITIONAL_LANGUAGES", arrayOf("hi-IN", "en-IN", "en-US", "pa-IN"))
                             }
